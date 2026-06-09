@@ -1,0 +1,598 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CRUX · Backend Specification</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#111111; --sub:#5C5C5C; --muted:#8A8A8A; --faint:#BDBDBD;
+    --line:#E6E6E6; --line-strong:#D2D2D2;
+    --paper:#FFFFFF; --desk:#ECEAE3;
+    --accent:#111111;
+    --code-bg:#F6F6F4; --code-ink:#1C1C1C;
+    --kw:#9A4A1E; --str:#1A6B45; --com:#9A9A9A;
+    --ok:#1A7A4A; --okbg:#E8F5EE; --warn:#A8650A; --warnbg:#FBF1E0; --danger:#B23B2B; --dangerbg:#FBEDEB;
+    --tag:#F0F0EE;
+    --mono:'DM Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+    --sans:'DM Sans', system-ui, -apple-system, sans-serif;
+  }
+  *{ box-sizing:border-box; }
+  html{ -webkit-text-size-adjust:100%; }
+  body{
+    margin:0; background:var(--desk); color:var(--ink);
+    font-family:var(--sans); font-size:15px; line-height:1.62;
+    -webkit-font-smoothing:antialiased; text-rendering:optimizeLegibility;
+  }
+
+  .page{
+    max-width:816px; margin:40px auto; background:var(--paper);
+    padding:76px 80px; border-radius:3px;
+    box-shadow:0 2px 14px rgba(0,0,0,0.09);
+    position:relative;
+  }
+  .page + .page{ margin-top:0; }
+
+  /* ── Typography ───────────────────────────────────── */
+  h1,h2,h3,h4{ line-height:1.18; margin:0; font-weight:600; letter-spacing:-0.01em; }
+  h2{ font-size:23px; margin:0 0 4px; letter-spacing:-0.02em; }
+  h3{ font-size:16px; margin:30px 0 8px; }
+  h4{ font-size:13.5px; margin:20px 0 6px; }
+  p{ margin:0 0 12px; color:#1d1d1d; }
+  p.sub{ color:var(--sub); }
+  strong{ font-weight:600; }
+  a{ color:var(--ink); text-decoration:underline; text-underline-offset:2px; text-decoration-color:var(--line-strong); }
+  ul,ol{ margin:0 0 14px; padding-left:20px; }
+  li{ margin:0 0 6px; color:#1d1d1d; break-inside:avoid; }
+  li::marker{ color:var(--muted); }
+  small{ font-size:12.5px; }
+
+  .eyebrow{ font-family:var(--mono); font-size:11px; letter-spacing:0.16em; text-transform:uppercase; color:var(--muted); }
+  .mono{ font-family:var(--mono); }
+
+  /* ── Cover ────────────────────────────────────────── */
+  .cover{ padding-top:96px; padding-bottom:96px; }
+  .brand{ display:flex; align-items:center; gap:12px; margin-bottom:64px; }
+  .brand svg{ width:30px; height:30px; }
+  .brand .name{ font-weight:700; font-size:19px; letter-spacing:0.04em; }
+  .brand .tag{ font-family:var(--mono); font-size:11px; color:var(--muted); letter-spacing:0.12em; text-transform:uppercase; margin-left:2px; }
+  .cover h1{ font-size:52px; font-weight:700; letter-spacing:-0.03em; line-height:1.04; margin:0 0 20px; }
+  .cover .lede{ font-size:17.5px; color:var(--sub); max-width:52ch; line-height:1.55; margin:0 0 56px; }
+  .meta-grid{ display:grid; grid-template-columns:repeat(2,1fr); gap:1px; background:var(--line); border:1px solid var(--line); border-radius:6px; overflow:hidden; max-width:520px; }
+  .meta-grid div{ background:var(--paper); padding:14px 18px; }
+  .meta-grid .k{ font-family:var(--mono); font-size:10.5px; letter-spacing:0.12em; text-transform:uppercase; color:var(--muted); margin-bottom:3px; }
+  .meta-grid .v{ font-size:14px; font-weight:500; }
+
+  /* ── Section header ───────────────────────────────── */
+  .sec-head{ display:flex; align-items:baseline; gap:14px; padding-bottom:14px; border-bottom:2px solid var(--ink); margin-bottom:26px; }
+  .sec-head .num{ font-family:var(--mono); font-size:13px; font-weight:500; color:var(--ink); }
+  .sec-head h2{ margin:0; flex:1; }
+  .sec-head .of{ font-family:var(--mono); font-size:11px; color:var(--faint); }
+
+  /* ── Callouts ─────────────────────────────────────── */
+  .note{ border-left:3px solid var(--line-strong); padding:2px 0 2px 16px; margin:16px 0; color:var(--sub); font-size:14px; }
+  .note.decision{ border-left-color:var(--ink); }
+  .note.decision .lbl{ font-family:var(--mono); font-size:10.5px; letter-spacing:0.12em; text-transform:uppercase; color:var(--ink); display:block; margin-bottom:3px; }
+  .note.flag{ border-left-color:var(--warn); }
+  .note.flag .lbl{ font-family:var(--mono); font-size:10.5px; letter-spacing:0.12em; text-transform:uppercase; color:var(--warn); display:block; margin-bottom:3px; }
+
+  /* ── Code blocks ──────────────────────────────────── */
+  pre{ background:var(--code-bg); border:1px solid var(--line); border-radius:8px; padding:16px 18px; margin:14px 0; overflow-x:auto; break-inside:avoid; }
+  pre code{ font-family:var(--mono); font-size:12.5px; line-height:1.62; color:var(--code-ink); white-space:pre; }
+  code.inline{ font-family:var(--mono); font-size:0.88em; background:var(--code-bg); border:1px solid var(--line); border-radius:4px; padding:1px 5px; color:var(--code-ink); }
+  .tok-kw{ color:var(--kw); }
+  .tok-str{ color:var(--str); }
+  .tok-com{ color:var(--com); font-style:italic; }
+  .tok-fn{ color:#1a4e8a; }
+
+  /* ── Tables ───────────────────────────────────────── */
+  table{ width:100%; border-collapse:collapse; margin:14px 0; font-size:13px; }
+  th,td{ text-align:left; padding:9px 12px; border-bottom:1px solid var(--line); vertical-align:top; }
+  th{ font-family:var(--mono); font-size:10.5px; letter-spacing:0.1em; text-transform:uppercase; color:var(--muted); font-weight:500; border-bottom:1.5px solid var(--line-strong); }
+  td.mono, td .mono{ font-family:var(--mono); font-size:12px; }
+  tr{ break-inside:avoid; }
+  .tag{ display:inline-block; font-family:var(--mono); font-size:10.5px; padding:2px 7px; border-radius:4px; background:var(--tag); color:#444; }
+  .tag.pk{ background:#EAEFFB; color:#2a4d8f; }
+  .tag.fk{ background:#FBF1E0; color:#8a5a0a; }
+  .tag.idx{ background:#E8F5EE; color:#1A7A4A; }
+
+  /* ── Architecture diagram ─────────────────────────── */
+  .diagram{ border:1px solid var(--line); border-radius:10px; padding:26px; margin:18px 0; background:#FBFBFA; }
+  .layer{ display:flex; gap:10px; align-items:stretch; }
+  .layer + .arrowrow{ display:flex; justify-content:center; padding:7px 0; }
+  .arrowrow svg{ width:14px; height:22px; color:var(--faint); }
+  .box{ flex:1; border:1px solid var(--line-strong); border-radius:8px; padding:12px 14px; background:var(--paper); }
+  .box .bt{ font-weight:600; font-size:13px; margin-bottom:2px; }
+  .box .bd{ font-size:11.5px; color:var(--muted); line-height:1.45; }
+  .box.solid{ background:var(--ink); border-color:var(--ink); }
+  .box.solid .bt{ color:#fff; }
+  .box.solid .bd{ color:#B8B8B8; }
+
+  /* ── Phase rail ───────────────────────────────────── */
+  .phase{ display:grid; grid-template-columns:84px 1fr; gap:18px; padding:16px 0; border-top:1px solid var(--line); break-inside:avoid; }
+  .phase:first-of-type{ border-top:2px solid var(--ink); }
+  .phase .pnum{ font-family:var(--mono); font-size:11px; color:var(--muted); }
+  .phase .pnum b{ display:block; font-size:26px; color:var(--ink); font-weight:600; margin-top:2px; letter-spacing:-0.02em; }
+  .phase h4{ margin:0 0 4px; font-size:15px; }
+  .phase ul{ margin:6px 0 0; }
+  .phase li{ font-size:13px; color:var(--sub); }
+
+  .two-col{ display:grid; grid-template-columns:1fr 1fr; gap:26px; }
+  .lede-row{ color:var(--sub); font-size:14px; margin-bottom:22px; }
+
+  .foot{ position:absolute; bottom:32px; left:80px; right:80px; display:flex; justify-content:space-between; font-family:var(--mono); font-size:10px; letter-spacing:0.08em; text-transform:uppercase; color:var(--faint); border-top:1px solid var(--line); padding-top:10px; }
+
+  /* ── Print ────────────────────────────────────────── */
+  @page{ margin:0.7in; }
+  @media print{
+    body{ background:#fff; }
+    .page{ max-width:none; margin:0; padding:0; box-shadow:none; border-radius:0; break-after:page; }
+    .page:last-child{ break-after:auto; }
+    .box.solid, .tag, .tag.pk, .tag.fk, .tag.idx, pre, code.inline, .okbg{ -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+    .foot{ position:fixed; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ════════ COVER ════════ -->
+<section class="page cover" data-screen-label="Cover">
+  <div class="brand">
+    <svg viewBox="0 0 24 24" fill="none" stroke="#111" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 20 12 4l6 16M8.5 14h7"/></svg>
+    <span class="name">CRUX</span>
+    <span class="tag">climbing tracker</span>
+  </div>
+
+  <h1>Backend<br>Specification</h1>
+  <p class="lede">A plan to take CRUX from a single-device, browser-stored prototype to a live, multi-user service — with accounts, cloud sync, photo storage, and a path to gym leaderboards.</p>
+
+  <div class="meta-grid">
+    <div><div class="k">Document</div><div class="v">Backend &amp; data architecture</div></div>
+    <div><div class="k">Status</div><div class="v">Draft for review</div></div>
+    <div><div class="k">Version</div><div class="v">0.1 — June 2026</div></div>
+    <div><div class="k">Owner</div><div class="v">Engineering</div></div>
+  </div>
+
+  <div class="foot"><span>CRUX · Backend Spec v0.1</span><span>Confidential</span></div>
+</section>
+
+<!-- ════════ 01 · OVERVIEW ════════ -->
+<section class="page" data-screen-label="01 Overview">
+  <div class="sec-head"><span class="num">01</span><h2>Where we are &amp; where we're going</h2><span class="of">Overview</span></div>
+
+  <p>CRUX today is a <strong>local-first React app with no server</strong>. Everything a climber logs lives in their browser's <code class="inline">localStorage</code> under a handful of keys. There are no accounts — the app implicitly belongs to whoever is holding the phone. Clear the browser, lose your data; switch devices, start over.</p>
+
+  <p>To put it live for real users we need three things the prototype lacks: <strong>identity</strong> (who is this?), <strong>durable storage</strong> (data that survives a device), and <strong>isolation</strong> (my logbook is mine, not yours). This document specifies all three, plus the photo handling, sync behaviour, and data-protection obligations that come with them.</p>
+
+  <h3>Guiding principles</h3>
+  <table>
+    <tr><th style="width:30%">Principle</th><th>What it means here</th></tr>
+    <tr><td><strong>Stay local-first</strong></td><td>The app already writes locally and feels instant. The backend mirrors that store — it doesn't replace it. Climbers log sends in gyms with bad signal; the app must never block on the network.</td></tr>
+    <tr><td><strong>One small leap</strong></td><td>Pick a managed platform so one person can ship and run this. No fleet of microservices for a logbook app.</td></tr>
+    <tr><td><strong>Model for tomorrow</strong></td><td>Ship isolated accounts now, but shape the schema so per-gym leaderboards and following don't need a rewrite.</td></tr>
+    <tr><td><strong>Own the data</strong></td><td>UK-based product → UK/EU data residency, full export, and real deletion from day one.</td></tr>
+  </table>
+
+  <h3>What "multiple users" means in v1</h3>
+  <p>Each person gets a private account and their own logbook. No social features are exposed yet — but gyms become a <em>shared, canonical</em> entity (rather than free text), which is the single schema decision that unlocks leaderboards and gym feeds later without a migration.</p>
+
+  <div class="note decision"><span class="lbl">Default decision</span>Isolated multi-user now; social-ready schema. If you want following / leaderboards <em>in v1</em>, say so — it changes scope in §08 but not the foundations.</div>
+
+  <h3>Scope of this document</h3>
+  <ul>
+    <li><strong>In scope:</strong> stack choice, auth, the relational data model, row-level security, the client↔server sync strategy, photo/object storage, migrating existing local data, GDPR posture, and a phased rollout.</li>
+    <li><strong>Out of scope (noted where relevant):</strong> native app packaging, push notifications, payments, and the social graph itself — all called out as future phases.</li>
+  </ul>
+
+  <div class="foot"><span>CRUX · Backend Spec v0.1</span><span>01 · Overview</span></div>
+</section>
+
+<!-- ════════ 02 · ARCHITECTURE ════════ -->
+<section class="page" data-screen-label="02 Architecture">
+  <div class="sec-head"><span class="num">02</span><h2>Architecture &amp; stack</h2><span class="of">System shape</span></div>
+
+  <p class="lede-row">The whole thing is a thin sync layer between the existing app and a managed Postgres. No bespoke server to babysit.</p>
+
+  <div class="diagram">
+    <div class="layer">
+      <div class="box"><div class="bt">CRUX client (React)</div><div class="bd">Existing UI, unchanged behaviour. Reads/writes a local cache first; queues changes for sync.</div></div>
+      <div class="box"><div class="bt">Local cache</div><div class="bd">IndexedDB (replaces today's localStorage). Source of truth for instant reads &amp; offline writes.</div></div>
+    </div>
+    <div class="arrowrow"><svg viewBox="0 0 14 22" fill="none" stroke="currentColor" stroke-width="2"><path d="M7 1v20M2 15l5 6 5-6"/></svg></div>
+    <div class="layer">
+      <div class="box solid"><div class="bt">Supabase — managed backend</div><div class="bd">Auth · Postgres (with Row-Level Security) · Storage (photos) · auto-generated REST &amp; Realtime APIs. Hosted in EU/UK region.</div></div>
+    </div>
+    <div class="arrowrow"><svg viewBox="0 0 14 22" fill="none" stroke="currentColor" stroke-width="2"><path d="M7 1v20M2 15l5 6 5-6"/></svg></div>
+    <div class="layer">
+      <div class="box"><div class="bt">Auth</div><div class="bd">Email + password, magic link, Google, Apple. Issues JWTs.</div></div>
+      <div class="box"><div class="bt">Postgres + RLS</div><div class="bd">Per-row ownership enforced in the database itself.</div></div>
+      <div class="box"><div class="bt">Object storage</div><div class="bd">Climb photos &amp; avatars + thumbnails.</div></div>
+    </div>
+  </div>
+
+  <h3>Why Supabase (the default)</h3>
+  <p>It bundles exactly the four pieces this app needs — auth, a real relational database, file storage, and an auto-generated API — behind one managed service, and it's plain Postgres underneath so we're never locked into a proprietary query model.</p>
+  <table>
+    <tr><th style="width:24%">Need</th><th>Supabase gives us</th><th style="width:26%">Alternative considered</th></tr>
+    <tr><td>Accounts &amp; sign-in</td><td>Hosted Auth with email/password, magic link, Google &amp; Apple OAuth, JWT issuance</td><td>Auth0, Clerk (more $$ at scale)</td></tr>
+    <tr><td>Durable data</td><td>Managed Postgres — relational, exactly fits sessions→climbs</td><td>Firebase/Firestore (document model fights our relations)</td></tr>
+    <tr><td>Isolation</td><td>Row-Level Security in the DB — the rule travels with the data</td><td>Hand-rolled checks in an API layer (easy to get wrong)</td></tr>
+    <tr><td>Photos</td><td>Built-in object storage + image transforms for thumbnails</td><td>Separate S3/R2 bucket + signing</td></tr>
+    <tr><td>API</td><td>Auto-generated REST + realtime from the schema; client SDK</td><td>Write &amp; maintain our own Node API</td></tr>
+  </table>
+
+  <div class="note"><strong>Migration safety valve:</strong> because it's standard Postgres, if we ever outgrow the platform we lift the database and storage out and front it with our own API. The data model in §04 stays identical either way.</div>
+
+  <div class="note flag"><span class="lbl">Decide</span>Region must be set at project creation and can't be moved later. Default: <code class="inline">eu-west-2</code> (London) for UK residency.</div>
+
+  <h3>Hosting the client</h3>
+  <p>The CRUX front-end is static (HTML/JS) — deploy it to any static host or CDN (Vercel, Netlify, Cloudflare Pages). It talks to Supabase directly via the SDK using a public "anon" key; all real authority lives in the RLS policies, not the client.</p>
+
+  <div class="foot"><span>CRUX · Backend Spec v0.1</span><span>02 · Architecture</span></div>
+</section>
+
+<!-- ════════ 03 · AUTH ════════ -->
+<section class="page" data-screen-label="03 Auth">
+  <div class="sec-head"><span class="num">03</span><h2>Identity &amp; authentication</h2><span class="of">Who is this?</span></div>
+
+  <p>Auth is handled by Supabase Auth. A successful sign-in yields a JWT carrying the user's <code class="inline">id</code> (a UUID). Every database request rides that token, and Postgres reads the id as <code class="inline">auth.uid()</code> inside RLS policies — so identity and authorisation are the same fact.</p>
+
+  <h3>Sign-in methods (v1)</h3>
+  <table>
+    <tr><th>Method</th><th>Notes</th></tr>
+    <tr><td>Email + password</td><td>Baseline. Includes verification email &amp; password reset out of the box.</td></tr>
+    <tr><td>Magic link</td><td>Passwordless — tap a link in email. Lowest friction for a casual logging app.</td></tr>
+    <tr><td>Google</td><td>OAuth. One-tap on Android &amp; web.</td></tr>
+    <tr><td>Apple</td><td>OAuth. Required by Apple if we ever wrap this as an iOS app and offer any other social login.</td></tr>
+  </table>
+
+  <h3>The onboarding the app already has</h3>
+  <p>CRUX has an onboarding flow (<code class="inline">crux_onboarded</code>, name + home-gym capture). That stays — it simply runs <em>after</em> first sign-in and writes to the <code class="inline">profiles</code> row instead of localStorage. Returning users skip straight in.</p>
+
+  <h3>Anonymous → account (smooth migration)</h3>
+  <p>Existing users already have a local logbook and no account. On first launch of the live version:</p>
+  <ol>
+    <li>Detect local data in <code class="inline">localStorage</code> / IndexedDB.</li>
+    <li>Offer "Create an account to back this up" — or continue anonymously (Supabase supports anonymous sessions that can be upgraded later).</li>
+    <li>On account creation, the local data is pushed up under the new <code class="inline">user_id</code> (see §09 Migration).</li>
+  </ol>
+
+  <div class="note decision"><span class="lbl">Default decision</span>Allow <strong>anonymous sessions</strong> so the app works the instant it loads, then nudge to register. This preserves the current "just start logging" feel.</div>
+
+  <div class="foot"><span>CRUX · Backend Spec v0.1</span><span>03 · Auth</span></div>
+</section>
+
+<!-- ════════ 04 · DATA MODEL ════════ -->
+<section class="page" data-screen-label="04 Data model">
+  <div class="sec-head"><span class="num">04</span><h2>Data model</h2><span class="of">localStorage → Postgres</span></div>
+
+  <p>Today's state is a set of JSON blobs. Here's the literal mapping to relational tables. The shapes are taken directly from the running app.</p>
+
+  <h3>What we store now</h3>
+  <table>
+    <tr><th>localStorage key</th><th>Shape</th><th>Becomes</th></tr>
+    <tr><td class="mono">crux_profile</td><td>{ name, homeGym, avatar }</td><td><span class="tag">profiles</span></td></tr>
+    <tr><td class="mono">crux_sessions</td><td>[ Session ]</td><td><span class="tag">sessions</span> + <span class="tag">climbs</span></td></tr>
+    <tr><td class="mono">crux_session</td><td>active Session</td><td><span class="tag">sessions</span> (ended_at null)</td></tr>
+    <tr><td class="mono">crux_goals</td><td>{ weeklySessions }</td><td><span class="tag">profiles.goals</span></td></tr>
+    <tr><td class="mono">crux_tweaks</td><td>{ theme, defaultRestSeconds, gymName, gradePref }</td><td><span class="tag">profiles.settings</span></td></tr>
+    <tr><td class="mono">crux_onboarded</td><td>boolean</td><td><span class="tag">profiles.onboarded_at</span></td></tr>
+  </table>
+
+  <p class="sub"><strong>Session</strong> = <span class="mono">{ id, gym, startTime, endTime?, climbs: [Climb] }</span><br>
+  <strong>Climb</strong> = <span class="mono">{ id, grade:{system,grade}, outcome, attempts, wallType, holdColor, photo, time, note? }</span></p>
+
+  <p>Achievements and all the headline stats (send rate, max grade, week streak) are <strong>derived</strong> in <code class="inline">computeDerived()</code> — we keep deriving them on the client, so there's nothing to store. The database holds only raw, user-entered facts.</p>
+
+  <h3>Entity relationships</h3>
+  <div class="diagram" style="padding:22px;">
+    <div class="layer" style="align-items:center; gap:12px;">
+      <div class="box" style="flex:0 0 auto; min-width:120px;"><div class="bt">profiles</div><div class="bd">1 per user</div></div>
+      <div class="mono" style="color:var(--faint); font-size:18px;">───&lt;</div>
+      <div class="box" style="flex:0 0 auto; min-width:120px;"><div class="bt">sessions</div><div class="bd">many per user</div></div>
+      <div class="mono" style="color:var(--faint); font-size:18px;">───&lt;</div>
+      <div class="box" style="flex:0 0 auto; min-width:120px;"><div class="bt">climbs</div><div class="bd">many per session</div></div>
+    </div>
+    <div class="layer" style="margin-top:14px; gap:12px;">
+      <div class="box" style="flex:0 0 auto; min-width:120px; opacity:0.92;"><div class="bt">gyms</div><div class="bd">shared, canonical · referenced by sessions &amp; profiles</div></div>
+      <div class="box" style="flex:0 0 auto; min-width:120px; opacity:0.55;"><div class="bt">+ future</div><div class="bd">follows · gym_members · likes</div></div>
+    </div>
+  </div>
+
+  <div class="note"><strong>Why split sessions &amp; climbs into two tables</strong> rather than one JSON column? So we can query across them — "all my V5 flashes on overhang", per-gym aggregates, leaderboards — without unpacking blobs. This is the whole reason to use a relational DB.</div>
+
+  <div class="foot"><span>CRUX · Backend Spec v0.1</span><span>04 · Data model</span></div>
+</section>
+
+<!-- ════════ 05 · SCHEMA / DDL ════════ -->
+<section class="page" data-screen-label="05 Schema">
+  <div class="sec-head"><span class="num">05</span><h2>Schema</h2><span class="of">SQL DDL</span></div>
+
+  <p>Postgres definitions. Enums mirror the constants in <code class="inline">crux-data.jsx</code> (<code class="inline">WALL_TYPES</code>, <code class="inline">HOLD_COLORS</code>, outcomes, grade systems). Every owned row carries <code class="inline">user_id</code>, <code class="inline">updated_at</code> and a soft-delete flag for sync.</p>
+
+<pre><code><span class="tok-com">-- enums mirror the app's constants</span>
+<span class="tok-kw">create type</span> grade_system <span class="tok-kw">as enum</span> (<span class="tok-str">'v'</span>, <span class="tok-str">'font'</span>);
+<span class="tok-kw">create type</span> climb_outcome <span class="tok-kw">as enum</span> (<span class="tok-str">'attempt'</span>, <span class="tok-str">'sent'</span>, <span class="tok-str">'flash'</span>);
+<span class="tok-kw">create type</span> wall_type <span class="tok-kw">as enum</span> (<span class="tok-str">'slab'</span>, <span class="tok-str">'vert'</span>, <span class="tok-str">'overhang'</span>, <span class="tok-str">'cave'</span>);
+
+<span class="tok-com">-- canonical gyms (shared across users)</span>
+<span class="tok-kw">create table</span> gyms (
+  id          uuid <span class="tok-kw">primary key default</span> gen_random_uuid(),
+  name        text <span class="tok-kw">not null</span>,
+  city        text,
+  country     text,
+  created_by  uuid <span class="tok-kw">references</span> auth.users,
+  created_at  timestamptz <span class="tok-kw">not null default</span> now()
+);
+
+<span class="tok-com">-- one row per user; extends Supabase's auth.users</span>
+<span class="tok-kw">create table</span> profiles (
+  id           uuid <span class="tok-kw">primary key references</span> auth.users <span class="tok-kw">on delete cascade</span>,
+  display_name text,
+  home_gym_id  uuid <span class="tok-kw">references</span> gyms,
+  avatar_path  text,                  <span class="tok-com">-- key in storage, not base64</span>
+  goals        jsonb <span class="tok-kw">not null default</span> <span class="tok-str">'{"weeklySessions":3}'</span>,
+  settings     jsonb <span class="tok-kw">not null default</span> <span class="tok-str">'{}'</span>,  <span class="tok-com">-- theme, rest, gradePref…</span>
+  onboarded_at timestamptz,
+  updated_at   timestamptz <span class="tok-kw">not null default</span> now()
+);
+
+<span class="tok-kw">create table</span> sessions (
+  id          uuid <span class="tok-kw">primary key default</span> gen_random_uuid(),
+  user_id     uuid <span class="tok-kw">not null references</span> auth.users <span class="tok-kw">on delete cascade</span>,
+  gym_id      uuid <span class="tok-kw">references</span> gyms,
+  gym_name    text,                   <span class="tok-com">-- free-text fallback / snapshot</span>
+  started_at  timestamptz <span class="tok-kw">not null</span>,
+  ended_at    timestamptz,            <span class="tok-com">-- null = session in progress</span>
+  deleted_at  timestamptz,            <span class="tok-com">-- soft delete for sync</span>
+  updated_at  timestamptz <span class="tok-kw">not null default</span> now()
+);
+
+<span class="tok-kw">create table</span> climbs (
+  id           uuid <span class="tok-kw">primary key default</span> gen_random_uuid(),
+  session_id   uuid <span class="tok-kw">not null references</span> sessions <span class="tok-kw">on delete cascade</span>,
+  user_id      uuid <span class="tok-kw">not null references</span> auth.users <span class="tok-kw">on delete cascade</span>,
+  grade_system grade_system,
+  grade        text,                  <span class="tok-com">-- e.g. 'V5' or '6C+'</span>
+  outcome      climb_outcome <span class="tok-kw">not null default</span> <span class="tok-str">'attempt'</span>,
+  attempts     int <span class="tok-kw">not null default</span> 1,
+  wall         wall_type,
+  hold_color   text,                  <span class="tok-com">-- 'red'…'grey' (see HOLD_COLORS)</span>
+  photo_path   text,                  <span class="tok-com">-- key in storage</span>
+  note         text,
+  logged_at    timestamptz <span class="tok-kw">not null</span>,
+  deleted_at   timestamptz,
+  updated_at   timestamptz <span class="tok-kw">not null default</span> now()
+);
+
+<span class="tok-com">-- indexes for the queries the app actually runs</span>
+<span class="tok-kw">create index</span> <span class="tok-kw">on</span> sessions (user_id, started_at <span class="tok-kw">desc</span>);
+<span class="tok-kw">create index</span> <span class="tok-kw">on</span> climbs   (user_id, logged_at <span class="tok-kw">desc</span>);
+<span class="tok-kw">create index</span> <span class="tok-kw">on</span> climbs   (session_id);</code></pre>
+
+  <div class="note"><strong>IDs change shape:</strong> the app's <code class="inline">uid()</code> makes short 7-char strings, fine for a local array but not globally unique. New rows use server-side UUIDs; on migration we map old ids → new UUIDs (§09).</div>
+
+  <div class="foot"><span>CRUX · Backend Spec v0.1</span><span>05 · Schema</span></div>
+</section>
+
+<!-- ════════ 06 · RLS ════════ -->
+<section class="page" data-screen-label="06 Security">
+  <div class="sec-head"><span class="num">06</span><h2>Row-Level Security</h2><span class="of">Isolation</span></div>
+
+  <p>This is the heart of "multiple users." Rather than trust the client or an API layer to filter by user, we make the <strong>database itself</strong> refuse to return or modify rows that aren't yours. The policy is attached to the table; there is no code path around it.</p>
+
+<pre><code><span class="tok-com">-- lock every owned table down by default</span>
+<span class="tok-kw">alter table</span> profiles <span class="tok-kw">enable row level security</span>;
+<span class="tok-kw">alter table</span> sessions <span class="tok-kw">enable row level security</span>;
+<span class="tok-kw">alter table</span> climbs   <span class="tok-kw">enable row level security</span>;
+
+<span class="tok-com">-- a user sees and writes only their own rows</span>
+<span class="tok-kw">create policy</span> <span class="tok-str">"own sessions"</span> <span class="tok-kw">on</span> sessions
+  <span class="tok-kw">for all</span>
+  <span class="tok-kw">using</span>      (user_id = auth.uid())   <span class="tok-com">-- read/update/delete</span>
+  <span class="tok-kw">with check</span> (user_id = auth.uid());  <span class="tok-com">-- insert/update</span>
+
+<span class="tok-kw">create policy</span> <span class="tok-str">"own climbs"</span> <span class="tok-kw">on</span> climbs
+  <span class="tok-kw">for all</span>
+  <span class="tok-kw">using</span>      (user_id = auth.uid())
+  <span class="tok-kw">with check</span> (user_id = auth.uid());
+
+<span class="tok-kw">create policy</span> <span class="tok-str">"own profile"</span> <span class="tok-kw">on</span> profiles
+  <span class="tok-kw">for all</span> <span class="tok-kw">using</span> (id = auth.uid()) <span class="tok-kw">with check</span> (id = auth.uid());
+
+<span class="tok-com">-- gyms are shared: anyone signed in can read; anyone can add one</span>
+<span class="tok-kw">alter table</span> gyms <span class="tok-kw">enable row level security</span>;
+<span class="tok-kw">create policy</span> <span class="tok-str">"read gyms"</span>   <span class="tok-kw">on</span> gyms <span class="tok-kw">for select using</span> (<span class="tok-kw">true</span>);
+<span class="tok-kw">create policy</span> <span class="tok-str">"create gyms"</span> <span class="tok-kw">on</span> gyms <span class="tok-kw">for insert with check</span> (auth.uid() <span class="tok-kw">is not null</span>);</code></pre>
+
+  <div class="note decision"><span class="lbl">Why this matters</span>With RLS on, a bug in the client or a leaked anon key still can't read someone else's logbook — the worst case is a user over-fetching <em>their own</em> data. Authorisation can't be forgotten because it isn't in application code.</div>
+
+  <h3>When social arrives</h3>
+  <p>Leaderboards and feeds become <em>additive</em> policies, e.g. "members of gym X may read each other's <em>sent</em> climbs at that gym." We add policies; we never loosen the owner-only default. A <code class="inline">visibility</code> column (<span class="mono">private / gym / public</span>) on sessions gives users control before any of that ships.</p>
+
+  <div class="foot"><span>CRUX · Backend Spec v0.1</span><span>06 · Security</span></div>
+</section>
+
+<!-- ════════ 07 · API ════════ -->
+<section class="page" data-screen-label="07 API">
+  <div class="sec-head"><span class="num">07</span><h2>API &amp; access patterns</h2><span class="of">How the app talks</span></div>
+
+  <p>No custom API is written for v1 — the Supabase client SDK exposes the tables directly (guarded by RLS). Below are the real operations the current UI performs, mapped to calls.</p>
+
+  <table>
+    <tr><th style="width:34%">App action (today)</th><th>Operation</th></tr>
+    <tr><td>Start a session</td><td class="mono">insert sessions (gym, started_at)</td></tr>
+    <tr><td>Log a climb</td><td class="mono">insert climbs (session_id, grade, outcome, …)</td></tr>
+    <tr><td>Mark sent / flash, change attempts</td><td class="mono">update climbs set outcome, attempts</td></tr>
+    <tr><td>End session</td><td class="mono">update sessions set ended_at</td></tr>
+    <tr><td>History list</td><td class="mono">select sessions order by started_at desc</td></tr>
+    <tr><td>Stats / achievements</td><td class="mono">select climbs → computeDerived() client-side</td></tr>
+    <tr><td>Edit profile / goals / settings</td><td class="mono">update profiles</td></tr>
+    <tr><td>Add a photo</td><td class="mono">storage.upload() → store path on climb</td></tr>
+  </table>
+
+  <h3>Reads stay cheap</h3>
+  <p>The home and stats screens need the user's whole (modest) climb history to compute streaks and bests. That's a single indexed query per user — trivial at the hundreds-to-thousands-of-rows scale a personal logbook generates. No aggregation service required.</p>
+
+  <h3>Where a server function <em>would</em> earn its place</h3>
+  <ul>
+    <li><strong>Leaderboards</strong> across many users — a scheduled job or Postgres view that ranks <code class="inline">max(grade)</code> per gym per week, so clients don't fetch others' raw data.</li>
+    <li><strong>Account deletion</strong> — a function that purges rows <em>and</em> storage objects in one transaction (§10).</li>
+    <li><strong>Abuse / rate limits</strong> on gym creation, once gyms are public.</li>
+  </ul>
+  <p class="sub">All three are Phase 2+. None are needed to go live.</p>
+
+  <div class="foot"><span>CRUX · Backend Spec v0.1</span><span>07 · API</span></div>
+</section>
+
+<!-- ════════ 08 · SYNC ════════ -->
+<section class="page" data-screen-label="08 Sync">
+  <div class="sec-head"><span class="num">08</span><h2>Local-first sync</h2><span class="of">Offline behaviour</span></div>
+
+  <p>Climbers log mid-session in basements with no signal. The app must keep working and reconcile later. We preserve the current "write locally, instantly" feel and layer sync underneath.</p>
+
+  <div class="two-col">
+    <div>
+      <h4>Read path</h4>
+      <p class="sub">UI reads from the local cache (IndexedDB) — always instant, online or off. A background pull refreshes the cache from Postgres on launch and on reconnect.</p>
+    </div>
+    <div>
+      <h4>Write path</h4>
+      <p class="sub">Every change writes to the local cache immediately and enqueues an outbound mutation. The queue drains to Supabase when there's a connection.</p>
+    </div>
+  </div>
+
+  <h3>Conflict resolution</h3>
+  <p>A personal logbook on one-or-two devices rarely produces true conflicts. We use <strong>last-write-wins per row</strong> via the <code class="inline">updated_at</code> column: the newer timestamp wins. Deletes are <em>soft</em> (<code class="inline">deleted_at</code>) so a delete on one device propagates instead of being resurrected by a stale copy on another.</p>
+
+  <div class="note">Because climbs are individual rows (not one big JSON blob), two devices editing <em>different</em> climbs in the same session never collide — they merge cleanly. This is a direct payoff of the relational split in §04.</div>
+
+  <h3>Implementation options</h3>
+  <table>
+    <tr><th>Option</th><th>Effort</th><th>When</th></tr>
+    <tr><td>Hand-rolled queue + <code class="inline">updated_at</code> reconciliation</td><td>Low–med</td><td>Default for v1 — full control, few moving parts</td></tr>
+    <tr><td>Realtime subscriptions (Supabase)</td><td>Low</td><td>Add when multi-device live updates matter</td></tr>
+    <tr><td>Off-the-shelf sync engine</td><td>Med</td><td>Only if the logbook grows collaborative</td></tr>
+  </table>
+
+  <div class="note decision"><span class="lbl">Default decision</span>Ship the simple queue. It covers the real use case (one climber, occasionally two devices) without taking on a sync framework.</div>
+
+  <div class="foot"><span>CRUX · Backend Spec v0.1</span><span>08 · Sync</span></div>
+</section>
+
+<!-- ════════ 09 · STORAGE + MIGRATION ════════ -->
+<section class="page" data-screen-label="09 Photos & migration">
+  <div class="sec-head"><span class="num">09</span><h2>Photos &amp; data migration</h2><span class="of">Blobs &amp; backfill</span></div>
+
+  <h3>Photos: out of the database</h3>
+  <p>Today a climb photo and the avatar are stored as <strong>base64 data URLs inside the JSON</strong>. That's fine for a prototype and ruinous at scale — a few photos bloat every read and blow past row/storage limits. They move to object storage:</p>
+  <ul>
+    <li>Upload the file to a Storage bucket at e.g. <code class="inline">climbs/{user_id}/{climb_id}.jpg</code>.</li>
+    <li>Store only the <strong>path</strong> on the row (<code class="inline">photo_path</code>, <code class="inline">avatar_path</code>).</li>
+    <li>Bucket is private; the client fetches via short-lived signed URLs. Generate a thumbnail on upload for list views.</li>
+  </ul>
+  <div class="note flag"><span class="lbl">Decide</span>Compress/resize on the client before upload (e.g. longest edge 1600px, JPEG ~0.8). Keeps storage and bandwidth sane on mobile data.</div>
+
+  <h3>Migrating existing local data</h3>
+  <p>The app already has an <strong>export</strong> feature (<code class="inline">exportData()</code> bundles sessions, profile, goals, tweaks to JSON) — that same shape is exactly what we import. On first authenticated launch:</p>
+  <ol>
+    <li>Read local <code class="inline">crux_*</code> keys (or an imported export file).</li>
+    <li>For each session &amp; climb, generate a new UUID and remember the old→new id map.</li>
+    <li>Insert <code class="inline">sessions</code> then <code class="inline">climbs</code> under the new <code class="inline">user_id</code>; map <code class="inline">grade.system/grade</code>, <code class="inline">wallType→wall</code>, <code class="inline">holdColor→hold_color</code>, <code class="inline">time→logged_at</code>.</li>
+    <li>For any embedded base64 photo, upload to storage and set <code class="inline">photo_path</code>.</li>
+    <li>Write <code class="inline">profile/goals/tweaks</code> into the <code class="inline">profiles</code> row; set <code class="inline">onboarded_at</code>.</li>
+    <li>Mark local data "migrated" so it isn't re-imported; keep it as a local backup until the first successful pull confirms.</li>
+  </ol>
+
+  <div class="note"><strong>No user loses anything.</strong> The migration is idempotent and runs once per device; the original local copy is retained until cloud sync is verified.</div>
+
+  <div class="foot"><span>CRUX · Backend Spec v0.1</span><span>09 · Photos &amp; migration</span></div>
+</section>
+
+<!-- ════════ 10 · GDPR ════════ -->
+<section class="page" data-screen-label="10 Data protection">
+  <div class="sec-head"><span class="num">10</span><h2>Data protection</h2><span class="of">UK GDPR</span></div>
+
+  <p>A UK product holding personal data (email, name, photos, location-ish gym data) sits under UK GDPR. None of this is heavy for a logbook, but it must be designed in, not bolted on.</p>
+
+  <table>
+    <tr><th style="width:30%">Obligation</th><th>How we meet it</th></tr>
+    <tr><td>Data residency</td><td>EU/UK region (<code class="inline">eu-west-2</code>). Set at project creation.</td></tr>
+    <tr><td>Right to access / portability</td><td>Reuse <code class="inline">exportData()</code> — already produces a full JSON export. Expose it as "Download my data."</td></tr>
+    <tr><td>Right to erasure</td><td>"Delete account" → a server function that deletes the <code class="inline">auth.users</code> row (cascades to all tables) <em>and</em> purges the user's storage folder. Real deletion, not a flag.</td></tr>
+    <tr><td>Data minimisation</td><td>We store only what's logged. No tracking, no third-party analytics by default.</td></tr>
+    <tr><td>Security</td><td>Encryption in transit &amp; at rest (managed), RLS isolation, private photo bucket with signed URLs.</td></tr>
+    <tr><td>Consent &amp; transparency</td><td>Short privacy notice at sign-up; explicit opt-in before any future social/leaderboard visibility.</td></tr>
+  </table>
+
+  <div class="note flag"><span class="lbl">Before launch</span>A lightweight privacy policy and terms page. Confirm Supabase's DPA/sub-processor terms are acceptable (they offer a standard DPA).</div>
+
+  <div class="foot"><span>CRUX · Backend Spec v0.1</span><span>10 · Data protection</span></div>
+</section>
+
+<!-- ════════ 11 · ROLLOUT ════════ -->
+<section class="page" data-screen-label="11 Rollout">
+  <div class="sec-head"><span class="num">11</span><h2>Phased rollout</h2><span class="of">Sequencing</span></div>
+
+  <p class="lede-row">Each phase ships something usable. Phase 1 alone is "live for multiple users."</p>
+
+  <div class="phase">
+    <div class="pnum">Phase<b>1</b></div>
+    <div>
+      <h4>Accounts &amp; cloud backup</h4>
+      <p class="sub">The minimum to be live for many users.</p>
+      <ul>
+        <li>Supabase project (EU region), schema + RLS from §05–06</li>
+        <li>Email/password + magic-link auth; onboarding writes to <code class="inline">profiles</code></li>
+        <li>Wire the app's reads/writes to Supabase behind the local cache</li>
+        <li>Photos → storage; one-time local→cloud migration (§09)</li>
+        <li>Export &amp; delete-account (GDPR)</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="phase">
+    <div class="pnum">Phase<b>2</b></div>
+    <div>
+      <h4>Polish &amp; resilience</h4>
+      <ul>
+        <li>Google &amp; Apple sign-in</li>
+        <li>Robust offline queue + realtime multi-device sync</li>
+        <li>Canonical gym picker (autocomplete against <code class="inline">gyms</code>) replacing free text</li>
+        <li>Image thumbnails &amp; client-side compression</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="phase">
+    <div class="pnum">Phase<b>3</b></div>
+    <div>
+      <h4>Social (optional)</h4>
+      <ul>
+        <li><code class="inline">visibility</code> on sessions; follows &amp; gym membership tables</li>
+        <li>Per-gym &amp; per-week leaderboards via Postgres views</li>
+        <li>Activity feed of people / gyms you follow</li>
+      </ul>
+    </div>
+  </div>
+
+  <h3>Open decisions for you</h3>
+  <table>
+    <tr><th style="width:46%">Question</th><th>Default if you don't pick</th></tr>
+    <tr><td>Social features in v1, or later?</td><td>Later (Phase 3)</td></tr>
+    <tr><td>Anonymous-first, or force sign-in?</td><td>Anonymous-first</td></tr>
+    <tr><td>Hosting region</td><td>London (<code class="inline">eu-west-2</code>)</td></tr>
+    <tr><td>Which sign-in methods at launch</td><td>Email + magic link (Phase 1)</td></tr>
+    <tr><td>Keep deriving stats client-side?</td><td>Yes — no stats tables</td></tr>
+  </table>
+
+  <p style="margin-top:24px; color:var(--sub);">Tell me which of these you want to change and I'll fold it in — or if you'd like, I can turn Phase 1 into a concrete build checklist with the actual Supabase setup steps and the client wiring.</p>
+
+  <div class="foot"><span>CRUX · Backend Spec v0.1</span><span>11 · Rollout</span></div>
+</section>
+
+</body>
+</html>

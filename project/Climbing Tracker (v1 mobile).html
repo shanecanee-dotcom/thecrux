@@ -1,0 +1,914 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>Crux — Climbing Tracker</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  html, body { height: 100%; background: #111; font-family: 'DM Sans', sans-serif; }
+  #root { height: 100%; display: flex; justify-content: center; align-items: center; }
+  input, textarea, select { font-family: 'DM Sans', sans-serif; }
+  ::-webkit-scrollbar { display: none; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const { useState, useEffect, useRef, useCallback } = React;
+
+// ── TWEAK DEFAULTS ──────────────────────────────────────────────────────────
+const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
+  "theme": "night",
+  "defaultRestSeconds": 240,
+  "gymName": "The Climbing Hangar"
+}/*EDITMODE-END*/;
+
+// ── THEMES ──────────────────────────────────────────────────────────────────
+const THEMES = {
+  pure: {
+    bg: '#FFFFFF', surface: '#F7F7F7', card: '#FFFFFF',
+    border: '#EBEBEB', borderStrong: '#D0D0D0',
+    text: '#111111', textSub: '#888888', textMuted: '#BBBBBB',
+    accent: '#111111', accentText: '#FFFFFF',
+    accentSoft: '#F0F0F0', accentSoftText: '#111111',
+    success: '#1A7A4A', successBg: '#E8F5EE',
+    danger: '#C0392B', dangerBg: '#FCECEA',
+    warning: '#D4780A', warningBg: '#FEF3E2',
+    timerBg: '#111111', timerText: '#FFFFFF',
+    tabBg: '#FFFFFF', tabBorder: '#EBEBEB',
+    shadow: '0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04)',
+    shadowMd: '0 4px 12px rgba(0,0,0,0.08)',
+    radius: '12px', radiusSm: '8px', radiusLg: '16px',
+  },
+  stone: {
+    bg: '#F2ECE4', surface: '#EAE2D8', card: '#F7F2EC',
+    border: '#D8CFBF', borderStrong: '#BFB4A0',
+    text: '#2A2219', textSub: '#7A6E62', textMuted: '#B0A69A',
+    accent: '#5C4A35', accentText: '#F7F2EC',
+    accentSoft: '#E0D5C5', accentSoftText: '#5C4A35',
+    success: '#3A7D44', successBg: '#E4F0E6',
+    danger: '#B5391B', dangerBg: '#F8E8E4',
+    warning: '#C47A1A', warningBg: '#FAF0DC',
+    timerBg: '#5C4A35', timerText: '#F7F2EC',
+    tabBg: '#EAE2D8', tabBorder: '#D0C7B8',
+    shadow: '0 1px 3px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.05)',
+    shadowMd: '0 4px 12px rgba(0,0,0,0.10)',
+    radius: '12px', radiusSm: '8px', radiusLg: '16px',
+  },
+  night: {
+    bg: '#141414', surface: '#1E1E1E', card: '#1E1E1E',
+    border: '#2C2C2C', borderStrong: '#3A3A3A',
+    text: '#F0F0F0', textSub: '#888888', textMuted: '#4A4A4A',
+    accent: '#C8FF00', accentText: '#141414',
+    accentSoft: '#2A3300', accentSoftText: '#C8FF00',
+    success: '#3EC97A', successBg: '#0D2818',
+    danger: '#FF5C5C', dangerBg: '#2A0D0D',
+    warning: '#FFAA33', warningBg: '#2A1A00',
+    timerBg: '#C8FF00', timerText: '#141414',
+    tabBg: '#1E1E1E', tabBorder: '#2C2C2C',
+    shadow: '0 1px 3px rgba(0,0,0,0.4)',
+    shadowMd: '0 4px 16px rgba(0,0,0,0.5)',
+    radius: '12px', radiusSm: '8px', radiusLg: '16px',
+  }
+};
+
+// ── GRADE DATA ───────────────────────────────────────────────────────────────
+const V_GRADES = ['VB','V0','V1','V2','V3','V4','V5','V6','V7','V8','V9','V10','V11','V12'];
+const FONT_GRADES = ['4','5','5+','6A','6A+','6B','6B+','6C','6C+','7A','7A+','7B','7B+','7C','7C+','8A','8A+','8B','8B+','8C'];
+
+const WALL_TYPES = [
+  { id:'slab',     label:'Slab',     angle:'< 90°',  desc:'Less than vertical' },
+  { id:'vert',     label:'Vert',     angle:'90°',    desc:'Vertical' },
+  { id:'overhang', label:'Overhang', angle:'> 90°',  desc:'Past vertical' },
+  { id:'cave',     label:'Cave',     angle:'> 135°', desc:'Severely overhanging' },
+];
+
+const HOLD_COLORS = [
+  { id:'red',    label:'Red',    hex:'#E53E3E' },
+  { id:'orange', label:'Orange', hex:'#E87C2B' },
+  { id:'yellow', label:'Yellow', hex:'#D4AC0D' },
+  { id:'green',  label:'Green',  hex:'#38A169' },
+  { id:'blue',   label:'Blue',   hex:'#3182CE' },
+  { id:'purple', label:'Purple', hex:'#805AD5' },
+  { id:'pink',   label:'Pink',   hex:'#D53F8C' },
+  { id:'white',  label:'White',  hex:'#E8E8E8', dark: true },
+  { id:'black',  label:'Black',  hex:'#2D2D2D' },
+  { id:'grey',   label:'Grey',   hex:'#9E9E9E' },
+  { id:'lime',   label:'Lime',   hex:'#84CC16' },
+];
+
+// ── UTILS ────────────────────────────────────────────────────────────────────
+const uid = () => Math.random().toString(36).slice(2, 9);
+const fmt = (s) => `${String(Math.floor(s/60)).padStart(2,'0')}:${String(s%60).padStart(2,'0')}`;
+const fmtDate = (ts) => new Date(ts).toLocaleDateString('en-GB', {weekday:'short', day:'numeric', month:'short'});
+const fmtTime = (ts) => new Date(ts).toLocaleTimeString('en-GB', {hour:'2-digit', minute:'2-digit'});
+
+function loadLS(key, def) {
+  try { const v = localStorage.getItem(key); return v ? JSON.parse(v) : def; } catch { return def; }
+}
+function saveLS(key, val) {
+  try { localStorage.setItem(key, JSON.stringify(val)); } catch {}
+}
+
+// ── ICONS (minimal SVG) ──────────────────────────────────────────────────────
+const Icon = ({ name, size=20, color='currentColor' }) => {
+  const s = { width: size, height: size, display:'block', flexShrink:0 };
+  const icons = {
+    plus: <svg style={s} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>,
+    check: <svg style={s} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>,
+    x: <svg style={s} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>,
+    timer: <svg style={s} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 2.5"/><path d="M9.5 3h5"/><path d="M12 3v2"/></svg>,
+    mountain: <svg style={s} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M8 3l4 8 5-5 5 15H2L8 3z"/></svg>,
+    history: <svg style={s} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round"><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15 15"/><path d="M3.05 11a9 9 0 0 1 1-3.5"/></svg>,
+    stats: <svg style={s} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round"><rect x="3" y="12" width="4" height="9"/><rect x="10" y="7" width="4" height="14"/><rect x="17" y="3" width="4" height="18"/></svg>,
+    flash: <svg style={s} viewBox="0 0 24 24" fill={color} stroke="none"><path d="M13 2L4.5 13H11L10 22L19.5 11H13L13 2Z"/></svg>,
+    send: <svg style={s} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 2L11 13"/><path d="M22 2L15 22 11 13 2 9l20-7z"/></svg>,
+    play: <svg style={s} viewBox="0 0 24 24" fill={color}><polygon points="5,3 19,12 5,21"/></svg>,
+    pause: <svg style={s} viewBox="0 0 24 24" fill={color}><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>,
+    reset: <svg style={s} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>,
+    camera: <svg style={s} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>,
+    flag: <svg style={s} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" y1="22" x2="4" y2="15"/></svg>,
+    trash: <svg style={s} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>,
+    chevRight: <svg style={s} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round"><polyline points="9 18 15 12 9 6"/></svg>,
+    chevDown: <svg style={s} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round"><polyline points="6 9 12 15 18 9"/></svg>,
+    location: <svg style={s} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>,
+  };
+  return icons[name] || null;
+};
+
+// ── COMPONENTS ───────────────────────────────────────────────────────────────
+
+function RestTimer({ t, tweaks, onClose }) {
+  const th = THEMES[tweaks.theme];
+  const [target, setTarget] = useState(tweaks.defaultRestSeconds);
+  const [remaining, setRemaining] = useState(tweaks.defaultRestSeconds);
+  const [running, setRunning] = useState(false);
+  const [editing, setEditing] = useState(false);
+  const interval = useRef(null);
+
+  useEffect(() => {
+    if (running) {
+      interval.current = setInterval(() => {
+        setRemaining(r => { if (r <= 1) { clearInterval(interval.current); setRunning(false); return 0; } return r-1; });
+      }, 1000);
+    } else clearInterval(interval.current);
+    return () => clearInterval(interval.current);
+  }, [running]);
+
+  const reset = () => { setRunning(false); setRemaining(target); };
+  const progress = remaining / target;
+  const r = 54, circ = 2 * Math.PI * r;
+
+  const PRESETS = [60, 90, 120, 180, 240, 300];
+  const [customMins, setCustomMins] = useState(Math.floor(target/60));
+  const [customSecs, setCustomSecs] = useState(target%60);
+
+  const applyCustom = () => {
+    const total = (parseInt(customMins)||0)*60 + (parseInt(customSecs)||0);
+    if (total > 0) { setTarget(total); setRemaining(total); setRunning(false); setEditing(false); }
+  };
+
+  return (
+    <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.6)', zIndex:200, display:'flex', alignItems:'flex-end', backdropFilter:'blur(4px)' }}>
+      <div style={{ background: th.bg, width:'100%', borderRadius:'24px 24px 0 0', padding:'0 0 40px' }}>
+        <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'20px 20px 0' }}>
+          <span style={{ fontSize:16, fontWeight:600, color:th.text }}>Rest Timer</span>
+          <button onClick={onClose} style={{ background:'none', border:'none', cursor:'pointer', color:th.textSub, padding:4 }}><Icon name="x" size={22} color={th.textSub}/></button>
+        </div>
+
+        {/* Circular timer */}
+        <div style={{ display:'flex', flexDirection:'column', alignItems:'center', padding:'24px 0 8px' }}>
+          <div style={{ position:'relative', width:140, height:140 }}>
+            <svg width="140" height="140" style={{ transform:'rotate(-90deg)' }}>
+              <circle cx="70" cy="70" r={r} fill="none" stroke={th.border} strokeWidth="6"/>
+              <circle cx="70" cy="70" r={r} fill="none" stroke={th.accent} strokeWidth="6"
+                strokeDasharray={circ} strokeDashoffset={circ * (1-progress)}
+                strokeLinecap="round" style={{ transition:'stroke-dashoffset 0.5s linear' }}/>
+            </svg>
+            <div style={{ position:'absolute', inset:0, display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center' }}>
+              <span style={{ fontSize:30, fontWeight:700, color:th.text, fontVariantNumeric:'tabular-nums', fontFamily:"'DM Mono', monospace" }}>{fmt(remaining)}</span>
+              <span style={{ fontSize:11, color:th.textSub, marginTop:2 }}>remaining</span>
+            </div>
+          </div>
+
+          {/* Controls */}
+          <div style={{ display:'flex', gap:16, marginTop:20, alignItems:'center' }}>
+            <button onClick={reset} style={{ background:th.surface, border:`1px solid ${th.border}`, borderRadius:'50%', width:44, height:44, display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer' }}>
+              <Icon name="reset" size={18} color={th.textSub}/>
+            </button>
+            <button onClick={() => setRunning(r => !r)} style={{ background:th.accent, border:'none', borderRadius:'50%', width:60, height:60, display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer' }}>
+              <Icon name={running ? 'pause' : 'play'} size={22} color={th.accentText}/>
+            </button>
+            <button onClick={() => setEditing(e => !e)} style={{ background:th.surface, border:`1px solid ${th.border}`, borderRadius:'50%', width:44, height:44, display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer', fontSize:12, color:th.textSub, fontWeight:600 }}>
+              SET
+            </button>
+          </div>
+        </div>
+
+        {/* Presets + custom */}
+        {editing && (
+          <div style={{ padding:'0 20px', marginTop:4 }}>
+            <p style={{ fontSize:11, fontWeight:600, color:th.textSub, letterSpacing:'0.08em', textTransform:'uppercase', marginBottom:10, textAlign:'center' }}>Quick presets</p>
+            <div style={{ display:'flex', gap:8, justifyContent:'center', flexWrap:'wrap', marginBottom:16 }}>
+              {PRESETS.map(s => (
+                <button key={s} onClick={() => { setTarget(s); setRemaining(s); setCustomMins(Math.floor(s/60)); setCustomSecs(s%60); setEditing(false); }}
+                  style={{ background: target===s ? th.accent : th.surface, color: target===s ? th.accentText : th.text, border:`1px solid ${target===s ? th.accent : th.border}`, borderRadius:th.radiusSm, padding:'8px 14px', fontSize:13, fontWeight:500, cursor:'pointer', fontFamily:'DM Sans' }}>
+                  {s >= 60 ? `${s/60}m` : `${s}s`}
+                </button>
+              ))}
+            </div>
+            <p style={{ fontSize:11, fontWeight:600, color:th.textSub, letterSpacing:'0.08em', textTransform:'uppercase', marginBottom:10, textAlign:'center' }}>Custom</p>
+            <div style={{ display:'flex', alignItems:'center', gap:8, justifyContent:'center' }}>
+              <div style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:4 }}>
+                <input type="number" min="0" max="99" value={customMins} onChange={e => setCustomMins(e.target.value)}
+                  style={{ width:64, textAlign:'center', fontSize:22, fontWeight:700, fontFamily:"'DM Mono', monospace", background:th.surface, border:`1px solid ${th.border}`, borderRadius:th.radiusSm, color:th.text, padding:'8px 4px', outline:'none' }}/>
+                <span style={{ fontSize:11, color:th.textSub }}>min</span>
+              </div>
+              <span style={{ fontSize:24, fontWeight:700, color:th.textMuted, marginBottom:18 }}>:</span>
+              <div style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:4 }}>
+                <input type="number" min="0" max="59" value={customSecs} onChange={e => setCustomSecs(e.target.value)}
+                  style={{ width:64, textAlign:'center', fontSize:22, fontWeight:700, fontFamily:"'DM Mono', monospace", background:th.surface, border:`1px solid ${th.border}`, borderRadius:th.radiusSm, color:th.text, padding:'8px 4px', outline:'none' }}/>
+                <span style={{ fontSize:11, color:th.textSub }}>sec</span>
+              </div>
+              <button onClick={applyCustom}
+                style={{ background:th.accent, color:th.accentText, border:'none', borderRadius:th.radiusSm, padding:'10px 16px', fontSize:13, fontWeight:700, cursor:'pointer', fontFamily:'DM Sans', marginBottom:18 }}>
+                Set
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function GradeSelector({ value, onChange, t, th }) {
+  const [system, setSystem] = useState(value?.system || 'v');
+  const grades = system === 'v' ? V_GRADES : FONT_GRADES;
+
+  const select = (g) => { onChange({ system, grade: g }); };
+  const current = value?.system === system ? value?.grade : null;
+
+  return (
+    <div>
+      {/* System toggle */}
+      <div style={{ display:'flex', gap:6, marginBottom:14 }}>
+        {['v','font'].map(sys => (
+          <button key={sys} onClick={() => setSystem(sys)} style={{ flex:1, padding:'8px 0', borderRadius:th.radiusSm, border:`1px solid ${system===sys ? th.accent : th.border}`, background: system===sys ? th.accent : th.surface, color: system===sys ? th.accentText : th.textSub, fontSize:13, fontWeight:600, cursor:'pointer', fontFamily:'DM Sans' }}>
+            {sys === 'v' ? 'V-Scale' : 'Fontainebleau'}
+          </button>
+        ))}
+      </div>
+      {/* Grade grid */}
+      <div style={{ display:'flex', flexWrap:'wrap', gap:6 }}>
+        {grades.map(g => (
+          <button key={g} onClick={() => select(g)} style={{ padding:'7px 12px', borderRadius:th.radiusSm, border:`1px solid ${current===g ? th.accent : th.border}`, background: current===g ? th.accent : th.surface, color: current===g ? th.accentText : th.text, fontSize:13, fontWeight:500, cursor:'pointer', fontFamily:'DM Mono, monospace', minWidth:44 }}>
+            {g}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function AddClimbModal({ t, tweaks, onSave, onClose }) {
+  const th = THEMES[tweaks.theme];
+  const [grade, setGrade] = useState(null);
+  const [outcome, setOutcome] = useState(null); // 'flash' | 'sent' | 'attempt'
+  const [holdColor, setHoldColor] = useState(null);
+  const [wallType, setWallType] = useState(null);
+  const [photoPreview, setPhotoPreview] = useState(null);
+  const fileRef = useRef();
+
+  const handlePhoto = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => setPhotoPreview(ev.target.result);
+    reader.readAsDataURL(file);
+  };
+
+  const canSave = grade && outcome;
+
+  const save = () => {
+    onSave({ id: uid(), grade, outcome, attempts: 1, wallType, holdColor, photo: photoPreview, time: Date.now() });
+  };
+
+  return (
+    <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.6)', zIndex:100, display:'flex', alignItems:'flex-end', backdropFilter:'blur(4px)' }}>
+      <div style={{ background:th.bg, width:'100%', borderRadius:'24px 24px 0 0', maxHeight:'92vh', overflowY:'auto' }}>
+        {/* Handle */}
+        <div style={{ display:'flex', justifyContent:'center', padding:'12px 0 0' }}>
+          <div style={{ width:36, height:4, background:th.borderStrong, borderRadius:2 }}/>
+        </div>
+        <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'14px 20px 0' }}>
+          <span style={{ fontSize:17, fontWeight:700, color:th.text }}>Log a climb</span>
+          <button onClick={onClose} style={{ background:th.surface, border:'none', borderRadius:'50%', width:32, height:32, display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer' }}>
+            <Icon name="x" size={16} color={th.textSub}/>
+          </button>
+        </div>
+
+        <div style={{ padding:'20px 20px 0' }}>
+          {/* Grade */}
+          <div style={{ marginBottom:22 }}>
+            <p style={{ fontSize:12, fontWeight:600, color:th.textSub, letterSpacing:'0.08em', textTransform:'uppercase', marginBottom:10 }}>Grade</p>
+            <GradeSelector value={grade} onChange={setGrade} t={t} th={th}/>
+          </div>
+
+          {/* Outcome */}
+          <div style={{ marginBottom:22 }}>
+            <p style={{ fontSize:12, fontWeight:600, color:th.textSub, letterSpacing:'0.08em', textTransform:'uppercase', marginBottom:10 }}>Result</p>
+            <div style={{ display:'flex', gap:8 }}>
+              {[
+                { key:'flash', icon:'flash', label:'Flash', color:th.warning, colorBg:th.warningBg },
+                { key:'sent',  icon:'check', label:'Sent',  color:th.success, colorBg:th.successBg },
+                { key:'attempt', icon:'x', label:'Attempt', color:th.danger, colorBg:th.dangerBg },
+              ].map(o => (
+                <button key={o.key} onClick={() => setOutcome(o.key)}
+                  style={{ flex:1, padding:'10px 4px', borderRadius:th.radius, border:`1.5px solid ${outcome===o.key ? o.color : th.border}`, background: outcome===o.key ? o.colorBg : th.surface, cursor:'pointer', display:'flex', flexDirection:'column', alignItems:'center', gap:6 }}>
+                  <Icon name={o.icon} size={18} color={outcome===o.key ? o.color : th.textSub}/>
+                  <span style={{ fontSize:12, fontWeight:600, color:outcome===o.key ? o.color : th.textSub }}>{o.label}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Wall Type */}
+          <div style={{ marginBottom:22 }}>
+            <p style={{ fontSize:12, fontWeight:600, color:th.textSub, letterSpacing:'0.08em', textTransform:'uppercase', marginBottom:10 }}>Wall Type</p>
+            <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:8 }}>
+              {WALL_TYPES.map(w => (
+                <button key={w.id} onClick={() => setWallType(wallType===w.id ? null : w.id)}
+                  style={{ padding:'10px 12px', borderRadius:th.radius, border:`1.5px solid ${wallType===w.id ? th.accent : th.border}`, background: wallType===w.id ? th.accentSoft : th.surface, cursor:'pointer', textAlign:'left' }}>
+                  <div style={{ fontSize:13, fontWeight:700, color: wallType===w.id ? th.accentSoftText : th.text }}>{w.label}</div>
+                  <div style={{ fontSize:11, color:th.textSub, marginTop:1 }}>{w.angle}</div>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Hold Color */}
+          <div style={{ marginBottom:22 }}>
+            <p style={{ fontSize:12, fontWeight:600, color:th.textSub, letterSpacing:'0.08em', textTransform:'uppercase', marginBottom:10 }}>Hold Colour</p>
+            <div style={{ display:'flex', gap:10, flexWrap:'wrap' }}>
+              {HOLD_COLORS.map(c => (
+                <button key={c.id} onClick={() => setHoldColor(holdColor===c.id ? null : c.id)}
+                  style={{ width:36, height:36, borderRadius:'50%', background:c.hex, border:`3px solid ${holdColor===c.id ? th.text : 'transparent'}`, cursor:'pointer', outline: holdColor===c.id ? `2px solid ${th.bg}` : 'none', outlineOffset:-4 }}
+                  title={c.label}/>
+              ))}
+            </div>
+          </div>
+
+          {/* Photo */}
+          <div style={{ marginBottom:28 }}>
+            <p style={{ fontSize:12, fontWeight:600, color:th.textSub, letterSpacing:'0.08em', textTransform:'uppercase', marginBottom:10 }}>Photo</p>
+            {photoPreview ? (
+              <div style={{ position:'relative', borderRadius:th.radius, overflow:'hidden', height:140 }}>
+                <img src={photoPreview} style={{ width:'100%', height:'100%', objectFit:'cover' }} alt="climb"/>
+                <button onClick={() => setPhotoPreview(null)} style={{ position:'absolute', top:8, right:8, background:'rgba(0,0,0,0.6)', border:'none', borderRadius:'50%', width:28, height:28, display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer' }}>
+                  <Icon name="x" size={14} color="#fff"/>
+                </button>
+              </div>
+            ) : (
+              <button onClick={() => fileRef.current.click()}
+                style={{ width:'100%', height:80, border:`2px dashed ${th.border}`, borderRadius:th.radius, background:th.surface, display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', gap:6, cursor:'pointer' }}>
+                <Icon name="camera" size={20} color={th.textMuted}/>
+                <span style={{ fontSize:12, color:th.textMuted }}>Add photo</span>
+              </button>
+            )}
+            <input ref={fileRef} type="file" accept="image/*" capture="environment" style={{ display:'none' }} onChange={handlePhoto}/>
+          </div>
+
+          {/* Save */}
+          <button onClick={save} disabled={!canSave}
+            style={{ width:'100%', padding:'16px', borderRadius:th.radius, border:'none', background: canSave ? th.accent : th.borderStrong, color: canSave ? th.accentText : th.textMuted, fontSize:16, fontWeight:600, cursor: canSave ? 'pointer' : 'not-allowed', marginBottom:8, fontFamily:'DM Sans' }}>
+            Log Climb
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ClimbCard({ climb, th, onDelete, onUpdate }) {
+  const hc = HOLD_COLORS.find(c => c.id === climb.holdColor);
+  const wt = WALL_TYPES.find(w => w.id === climb.wallType);
+  const isAttempting = climb.outcome === 'attempt';
+  const attempts = climb.attempts || 1;
+
+  const outcomeMap = {
+    flash:   { label:'Flash',   color:th.warning, bg:th.warningBg },
+    sent:    { label:'Sent',    color:th.success, bg:th.successBg },
+    attempt: { label:`${attempts} attempt${attempts!==1?'s':''}`, color:th.danger, bg:th.dangerBg },
+  };
+  const oc = outcomeMap[climb.outcome] || { label:'?', color:th.textSub, bg:th.surface };
+
+  return (
+    <div style={{ background:th.card, border:`1.5px solid ${isAttempting ? th.danger+'44' : th.border}`, borderRadius:th.radius, overflow:'hidden', boxShadow:th.shadow }}>
+      {/* Main row */}
+      <div style={{ padding:'12px 14px', display:'flex', alignItems:'center', gap:10 }}>
+        {/* Hold color dot */}
+        {hc && <div style={{ width:9, height:9, borderRadius:'50%', background:hc.hex, flexShrink:0, border:`1px solid ${th.border}` }}/>}
+        {/* Grade */}
+        <span style={{ fontFamily:"'DM Mono', monospace", fontSize:15, fontWeight:600, color:th.text, minWidth:34 }}>
+          {climb.grade?.grade || '?'}
+        </span>
+        {/* Wall type */}
+        {wt && <span style={{ fontSize:11, color:th.textSub, background:th.surface, border:`1px solid ${th.border}`, borderRadius:4, padding:'1px 6px' }}>{wt.label}</span>}
+        <div style={{ flex:1 }}/>
+        {/* Outcome badge */}
+        <span style={{ fontSize:12, fontWeight:600, color:oc.color, background:oc.bg, padding:'3px 8px', borderRadius:th.radiusSm, whiteSpace:'nowrap' }}>
+          {oc.label}
+        </span>
+        {/* Photo thumb */}
+        {climb.photo && <img src={climb.photo} style={{ width:28, height:28, borderRadius:th.radiusSm, objectFit:'cover' }} alt=""/>}
+        {/* Delete */}
+        {onDelete && (
+          <button onClick={onDelete} style={{ background:'none', border:'none', padding:2, cursor:'pointer' }}>
+            <Icon name="trash" size={15} color={th.textMuted}/>
+          </button>
+        )}
+      </div>
+
+      {/* Attempt controls — only when still in progress */}
+      {isAttempting && onUpdate && (
+        <div style={{ borderTop:`1px solid ${th.danger+'33'}`, background:th.dangerBg, padding:'10px 14px', display:'flex', alignItems:'center', gap:8 }}>
+          {/* Attempt stepper */}
+          <div style={{ display:'flex', alignItems:'center', gap:0, border:`1px solid ${th.danger+'55'}`, borderRadius:th.radiusSm, overflow:'hidden' }}>
+            <button onClick={() => onUpdate({ attempts: Math.max(1, attempts-1) })}
+              style={{ background:'none', border:'none', padding:'6px 10px', cursor:'pointer', fontSize:16, color:th.danger, fontWeight:700, lineHeight:1 }}>−</button>
+            <span style={{ padding:'6px 4px', fontSize:13, fontWeight:700, color:th.danger, minWidth:24, textAlign:'center', fontFamily:"'DM Mono', monospace" }}>{attempts}</span>
+            <button onClick={() => onUpdate({ attempts: attempts+1 })}
+              style={{ background:'none', border:'none', padding:'6px 10px', cursor:'pointer', fontSize:16, color:th.danger, fontWeight:700, lineHeight:1 }}>+</button>
+          </div>
+          <span style={{ fontSize:11, color:th.danger, flex:1 }}>attempts — mark as:</span>
+          <button onClick={() => onUpdate({ outcome:'sent', attempts })}
+            style={{ background:th.successBg, border:`1px solid ${th.success}44`, borderRadius:th.radiusSm, padding:'6px 12px', fontSize:12, fontWeight:700, color:th.success, cursor:'pointer', fontFamily:'DM Sans' }}>
+            Sent ✓
+          </button>
+          <button onClick={() => onUpdate({ outcome:'flash', attempts:1 })}
+            style={{ background:th.warningBg, border:`1px solid ${th.warning}44`, borderRadius:th.radiusSm, padding:'6px 12px', fontSize:12, fontWeight:700, color:th.warning, cursor:'pointer', fontFamily:'DM Sans' }}>
+            Flash ⚡
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── SCREENS ───────────────────────────────────────────────────────────────────
+
+function SessionScreen({ sessions, setSessions, tweaks, setShowTweaks }) {
+  const th = THEMES[tweaks.theme];
+  const [currentSession, setCurrentSession] = useState(() => loadLS('crux_session', null));
+  const [showAdd, setShowAdd] = useState(false);
+  const [showTimer, setShowTimer] = useState(false);
+  const [gymInput, setGymInput] = useState(tweaks.gymName);
+
+  useEffect(() => { saveLS('crux_session', currentSession); }, [currentSession]);
+
+  const startSession = () => {
+    setCurrentSession({ id: uid(), gym: gymInput, startTime: Date.now(), climbs: [] });
+  };
+
+  const endSession = () => {
+    if (!currentSession) return;
+    const finished = { ...currentSession, endTime: Date.now() };
+    setSessions(prev => [finished, ...prev]);
+    setCurrentSession(null);
+  };
+
+  const addClimb = (climb) => {
+    setCurrentSession(s => ({ ...s, climbs: [...(s.climbs||[]), climb] }));
+    setShowAdd(false);
+    setShowTimer(true);
+  };
+
+  const deleteClimb = (id) => {
+    setCurrentSession(s => ({ ...s, climbs: s.climbs.filter(c => c.id !== id) }));
+  };
+
+  const updateClimb = (id, changes) => {
+    setCurrentSession(s => ({ ...s, climbs: s.climbs.map(c => c.id === id ? { ...c, ...changes } : c) }));
+  };
+
+  const climbs = currentSession?.climbs || [];
+  const sends = climbs.filter(c => c.outcome === 'sent' || c.outcome === 'flash').length;
+
+  // No session state
+  if (!currentSession) return (
+    <div style={{ flex:1, overflowY:'auto', padding:'24px 20px' }}>
+      <div style={{ marginBottom:28 }}>
+        <h1 style={{ fontSize:28, fontWeight:700, color:th.text, lineHeight:1.1 }}>Ready to<br/>climb?</h1>
+        <p style={{ fontSize:14, color:th.textSub, marginTop:6 }}>Start a session to track your boulders.</p>
+      </div>
+
+      {/* Gym name */}
+      <div style={{ marginBottom:16 }}>
+        <p style={{ fontSize:12, fontWeight:600, color:th.textSub, letterSpacing:'0.08em', textTransform:'uppercase', marginBottom:8 }}>Gym</p>
+        <div style={{ display:'flex', alignItems:'center', gap:10, background:th.surface, borderRadius:th.radius, border:`1px solid ${th.border}`, padding:'12px 14px' }}>
+          <Icon name="location" size={16} color={th.textSub}/>
+          <input value={gymInput} onChange={e => setGymInput(e.target.value)}
+            style={{ background:'none', border:'none', outline:'none', fontSize:15, color:th.text, flex:1, fontFamily:'DM Sans' }}
+            placeholder="Gym name"/>
+        </div>
+      </div>
+
+      <button onClick={startSession} style={{ width:'100%', padding:'16px', borderRadius:th.radius, background:th.accent, color:th.accentText, fontSize:16, fontWeight:700, border:'none', cursor:'pointer', fontFamily:'DM Sans', letterSpacing:'-0.01em' }}>
+        Start Session
+      </button>
+
+      {/* Recent session teaser */}
+      {sessions.length > 0 && (
+        <div style={{ marginTop:32 }}>
+          <p style={{ fontSize:12, fontWeight:600, color:th.textSub, letterSpacing:'0.08em', textTransform:'uppercase', marginBottom:12 }}>Last session</p>
+          <div style={{ background:th.card, border:`1px solid ${th.border}`, borderRadius:th.radius, padding:'14px 16px', boxShadow:th.shadow }}>
+            <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start' }}>
+              <div>
+                <p style={{ fontSize:14, fontWeight:600, color:th.text }}>{sessions[0].gym}</p>
+                <p style={{ fontSize:12, color:th.textSub, marginTop:2 }}>{fmtDate(sessions[0].startTime)}</p>
+              </div>
+              <div style={{ textAlign:'right' }}>
+                <p style={{ fontSize:20, fontWeight:700, color:th.text }}>{sessions[0].climbs?.length || 0}</p>
+                <p style={{ fontSize:11, color:th.textSub }}>problems</p>
+              </div>
+            </div>
+            <div style={{ display:'flex', gap:12, marginTop:12, paddingTop:12, borderTop:`1px solid ${th.border}` }}>
+              {[
+                { label:'Sent', val: sessions[0].climbs?.filter(c=>c.outcome==='sent'||c.outcome==='flash').length||0, color:th.success },
+                { label:'Flashed', val: sessions[0].climbs?.filter(c=>c.outcome==='flash').length||0, color:th.warning },
+                { label:'Attempts', val: sessions[0].climbs?.filter(c=>c.outcome==='attempt').length||0, color:th.danger },
+              ].map(stat => (
+                <div key={stat.label} style={{ flex:1, textAlign:'center' }}>
+                  <p style={{ fontSize:16, fontWeight:700, color:stat.color }}>{stat.val}</p>
+                  <p style={{ fontSize:11, color:th.textSub }}>{stat.label}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+
+  // Active session
+  return (
+    <div style={{ flex:1, display:'flex', flexDirection:'column', overflow:'hidden' }}>
+      {/* Session header */}
+      <div style={{ padding:'16px 20px 12px', borderBottom:`1px solid ${th.border}`, background:th.bg }}>
+        <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start' }}>
+          <div>
+            <div style={{ display:'flex', alignItems:'center', gap:6, marginBottom:2 }}>
+              <div style={{ width:7, height:7, borderRadius:'50%', background:th.success, boxShadow:`0 0 0 3px ${th.successBg}` }}/>
+              <span style={{ fontSize:12, fontWeight:600, color:th.success }}>Session active</span>
+            </div>
+            <p style={{ fontSize:16, fontWeight:700, color:th.text }}>{currentSession.gym}</p>
+            <p style={{ fontSize:12, color:th.textSub }}>Started {fmtTime(currentSession.startTime)}</p>
+          </div>
+          <div style={{ textAlign:'right' }}>
+            <p style={{ fontSize:24, fontWeight:800, color:th.text }}>{climbs.length}</p>
+            <p style={{ fontSize:11, color:th.textSub }}>{sends}/{climbs.length} sent</p>
+          </div>
+        </div>
+      </div>
+
+      {/* Climbs list */}
+      <div style={{ flex:1, overflowY:'auto', padding:'16px 20px' }}>
+        {climbs.length === 0 ? (
+          <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', height:160, gap:8 }}>
+            <Icon name="mountain" size={32} color={th.textMuted}/>
+            <p style={{ fontSize:14, color:th.textMuted }}>No climbs yet — add your first!</p>
+          </div>
+        ) : (
+          <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
+            {[...climbs].reverse().map(c => (
+              <ClimbCard key={c.id} climb={c} th={th} onDelete={() => deleteClimb(c.id)} onUpdate={(changes) => updateClimb(c.id, changes)}/>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Bottom controls */}
+      <div style={{ padding:'12px 20px 16px', borderTop:`1px solid ${th.border}`, background:th.bg }}>
+        <div style={{ display:'flex', gap:10, marginBottom:10 }}>
+          <button onClick={() => setShowTimer(true)}
+            style={{ flex:1, padding:'13px 0', borderRadius:th.radius, border:`1px solid ${th.border}`, background:th.surface, color:th.text, fontSize:14, fontWeight:600, display:'flex', alignItems:'center', justifyContent:'center', gap:8, cursor:'pointer', fontFamily:'DM Sans' }}>
+            <Icon name="timer" size={16} color={th.text}/> Rest Timer
+          </button>
+          <button onClick={() => setShowAdd(true)}
+            style={{ flex:2, padding:'13px 0', borderRadius:th.radius, border:'none', background:th.accent, color:th.accentText, fontSize:14, fontWeight:700, display:'flex', alignItems:'center', justifyContent:'center', gap:8, cursor:'pointer', fontFamily:'DM Sans' }}>
+            <Icon name="plus" size={18} color={th.accentText}/> Add Climb
+          </button>
+        </div>
+        <button onClick={endSession}
+          style={{ width:'100%', padding:'13px', borderRadius:th.radius, border:`1px solid ${th.dangerBg}`, background:th.dangerBg, color:th.danger, fontSize:14, fontWeight:600, cursor:'pointer', fontFamily:'DM Sans' }}>
+          End Session
+        </button>
+      </div>
+
+      {showAdd && <AddClimbModal t={th} tweaks={tweaks} onSave={addClimb} onClose={() => setShowAdd(false)}/>}
+      {showTimer && <RestTimer t={th} tweaks={tweaks} onClose={() => setShowTimer(false)}/>}
+    </div>
+  );
+}
+
+function HistoryScreen({ sessions, setSessions, tweaks }) {
+  const th = THEMES[tweaks.theme];
+  const [expanded, setExpanded] = useState(null);
+
+  if (sessions.length === 0) return (
+    <div style={{ flex:1, display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', padding:40, gap:12 }}>
+      <Icon name="history" size={40} color={th.textMuted}/>
+      <p style={{ fontSize:15, color:th.textMuted, textAlign:'center' }}>No sessions yet.<br/>Start climbing to build your history!</p>
+    </div>
+  );
+
+  return (
+    <div style={{ flex:1, overflowY:'auto', padding:'16px 20px' }}>
+      <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
+        {sessions.map(s => {
+          const sends = s.climbs?.filter(c => c.outcome==='sent'||c.outcome==='flash').length||0;
+          const flashes = s.climbs?.filter(c => c.outcome==='flash').length||0;
+          const isOpen = expanded === s.id;
+          const duration = s.endTime ? Math.round((s.endTime - s.startTime)/60000) : null;
+
+          return (
+            <div key={s.id} style={{ background:th.card, border:`1px solid ${th.border}`, borderRadius:th.radius, overflow:'hidden', boxShadow:th.shadow }}>
+              <button onClick={() => setExpanded(isOpen ? null : s.id)}
+                style={{ width:'100%', padding:'14px 16px', background:'none', border:'none', cursor:'pointer', display:'flex', justifyContent:'space-between', alignItems:'center', textAlign:'left' }}>
+                <div>
+                  <p style={{ fontSize:15, fontWeight:700, color:th.text, marginBottom:2 }}>{s.gym}</p>
+                  <p style={{ fontSize:12, color:th.textSub }}>{fmtDate(s.startTime)}{duration ? ` · ${duration}min` : ''}</p>
+                </div>
+                <div style={{ display:'flex', alignItems:'center', gap:12 }}>
+                  <div style={{ textAlign:'right' }}>
+                    <p style={{ fontSize:18, fontWeight:700, color:th.text }}>{s.climbs?.length||0}</p>
+                    <p style={{ fontSize:11, color:th.textSub }}>problems</p>
+                  </div>
+                  <Icon name={isOpen ? 'chevDown' : 'chevRight'} size={16} color={th.textSub}/>
+                </div>
+              </button>
+
+              {isOpen && (
+                <div style={{ borderTop:`1px solid ${th.border}` }}>
+                  <div style={{ display:'flex', gap:0, borderBottom:`1px solid ${th.border}` }}>
+                    {[
+                      { l:'Sent', v:sends, c:th.success },
+                      { l:'Flashed', v:flashes, c:th.warning },
+                      { l:'Attempts', v:(s.climbs?.length||0)-sends, c:th.danger },
+                    ].map((stat,i) => (
+                      <div key={i} style={{ flex:1, textAlign:'center', padding:'10px 4px', borderRight: i<2 ? `1px solid ${th.border}` : 'none' }}>
+                        <p style={{ fontSize:18, fontWeight:700, color:stat.c }}>{stat.v}</p>
+                        <p style={{ fontSize:11, color:th.textSub }}>{stat.l}</p>
+                      </div>
+                    ))}
+                  </div>
+                  <div style={{ padding:'12px 14px', display:'flex', flexDirection:'column', gap:8 }}>
+                    {s.climbs?.map(c => <ClimbCard key={c.id} climb={c} th={th}/>)}
+                  </div>
+                  <div style={{ padding:'0 14px 12px' }}>
+                    <button onClick={() => setSessions(prev => prev.filter(x => x.id !== s.id))}
+                      style={{ width:'100%', padding:'10px', borderRadius:th.radiusSm, border:`1px solid ${th.dangerBg}`, background:th.dangerBg, color:th.danger, fontSize:13, fontWeight:600, cursor:'pointer', fontFamily:'DM Sans' }}>
+                      Delete session
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function StatsScreen({ sessions, tweaks }) {
+  const th = THEMES[tweaks.theme];
+  const allClimbs = sessions.flatMap(s => s.climbs || []);
+
+  const totalSessions = sessions.length;
+  const totalClimbs = allClimbs.length;
+  const totalSends = allClimbs.filter(c => c.outcome==='sent'||c.outcome==='flash').length;
+  const totalFlashes = allClimbs.filter(c => c.outcome==='flash').length;
+  const sendRate = totalClimbs > 0 ? Math.round((totalSends/totalClimbs)*100) : 0;
+
+  // Grade distribution (V-scale only for pyramid)
+  const vGradeCounts = {};
+  allClimbs.filter(c => c.grade?.system==='v').forEach(c => {
+    const g = c.grade.grade;
+    if (!vGradeCounts[g]) vGradeCounts[g] = { sent:0, attempt:0 };
+    if (c.outcome==='sent'||c.outcome==='flash') vGradeCounts[g].sent++;
+    else vGradeCounts[g].attempt++;
+  });
+
+  const pyramidGrades = V_GRADES.filter(g => vGradeCounts[g]);
+  const maxVal = Math.max(...pyramidGrades.map(g => (vGradeCounts[g]?.sent||0) + (vGradeCounts[g]?.attempt||0)), 1);
+
+  if (totalClimbs === 0) return (
+    <div style={{ flex:1, display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', padding:40, gap:12 }}>
+      <Icon name="stats" size={40} color={th.textMuted}/>
+      <p style={{ fontSize:15, color:th.textMuted, textAlign:'center' }}>No data yet.<br/>Log some climbs to see stats!</p>
+    </div>
+  );
+
+  return (
+    <div style={{ flex:1, overflowY:'auto', padding:'16px 20px' }}>
+      {/* Summary cards */}
+      <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:10, marginBottom:20 }}>
+        {[
+          { label:'Sessions', value:totalSessions, color:th.text },
+          { label:'Problems', value:totalClimbs, color:th.text },
+          { label:'Sends', value:totalSends, color:th.success },
+          { label:'Send Rate', value:`${sendRate}%`, color: sendRate>60 ? th.success : sendRate>40 ? th.warning : th.danger },
+        ].map(stat => (
+          <div key={stat.label} style={{ background:th.card, border:`1px solid ${th.border}`, borderRadius:th.radius, padding:'14px 16px', boxShadow:th.shadow }}>
+            <p style={{ fontSize:26, fontWeight:800, color:stat.color }}>{stat.value}</p>
+            <p style={{ fontSize:12, color:th.textSub, marginTop:2 }}>{stat.label}</p>
+          </div>
+        ))}
+      </div>
+
+      {/* Flashes */}
+      {totalFlashes > 0 && (
+        <div style={{ background:th.warningBg, border:`1px solid ${th.warning}22`, borderRadius:th.radius, padding:'12px 16px', marginBottom:20, display:'flex', alignItems:'center', gap:12 }}>
+          <Icon name="flash" size={20} color={th.warning}/>
+          <div>
+            <p style={{ fontSize:16, fontWeight:700, color:th.warning }}>{totalFlashes} Flash{totalFlashes!==1?'es':''}</p>
+            <p style={{ fontSize:12, color:th.textSub }}>First attempt sends</p>
+          </div>
+        </div>
+      )}
+
+      {/* Grade pyramid */}
+      {pyramidGrades.length > 0 && (
+        <div style={{ background:th.card, border:`1px solid ${th.border}`, borderRadius:th.radius, padding:'16px', marginBottom:20, boxShadow:th.shadow }}>
+          <p style={{ fontSize:13, fontWeight:700, color:th.text, marginBottom:16, letterSpacing:'-0.01em' }}>Grade Pyramid (V-Scale)</p>
+          <div style={{ display:'flex', flexDirection:'column-reverse', gap:4 }}>
+            {pyramidGrades.map(g => {
+              const d = vGradeCounts[g];
+              const total = (d.sent||0) + (d.attempt||0);
+              const pct = (total/maxVal)*100;
+              return (
+                <div key={g} style={{ display:'flex', alignItems:'center', gap:10 }}>
+                  <span style={{ fontFamily:"'DM Mono', monospace", fontSize:12, color:th.textSub, width:28, textAlign:'right', flexShrink:0 }}>{g}</span>
+                  <div style={{ flex:1, height:20, background:th.surface, borderRadius:4, overflow:'hidden', position:'relative' }}>
+                    <div style={{ position:'absolute', left:0, top:0, bottom:0, width:`${pct}%`, background:th.accentSoft, display:'flex', alignItems:'center' }}>
+                      {/* Sent portion */}
+                      <div style={{ height:'100%', width:`${(d.sent/total)*100}%`, background:th.accent, borderRadius:'4px 0 0 4px' }}/>
+                    </div>
+                  </div>
+                  <span style={{ fontSize:12, color:th.textSub, width:20, textAlign:'left', flexShrink:0 }}>{total}</span>
+                </div>
+              );
+            })}
+          </div>
+          <div style={{ display:'flex', gap:16, marginTop:12, paddingTop:12, borderTop:`1px solid ${th.border}` }}>
+            <div style={{ display:'flex', alignItems:'center', gap:6 }}>
+              <div style={{ width:12, height:12, borderRadius:2, background:th.accent }}/>
+              <span style={{ fontSize:12, color:th.textSub }}>Sent</span>
+            </div>
+            <div style={{ display:'flex', alignItems:'center', gap:6 }}>
+              <div style={{ width:12, height:12, borderRadius:2, background:th.accentSoft }}/>
+              <span style={{ fontSize:12, color:th.textSub }}>Attempt</span>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Sessions timeline */}
+      <div style={{ background:th.card, border:`1px solid ${th.border}`, borderRadius:th.radius, padding:'16px', boxShadow:th.shadow }}>
+        <p style={{ fontSize:13, fontWeight:700, color:th.text, marginBottom:14 }}>Sessions</p>
+        {sessions.slice(0,8).map((s,i) => {
+          const c = s.climbs?.length||0;
+          const sr = c > 0 ? Math.round((s.climbs.filter(x=>x.outcome==='sent'||x.outcome==='flash').length/c)*100) : 0;
+          return (
+            <div key={s.id} style={{ display:'flex', alignItems:'center', gap:10, paddingBottom:i<sessions.length-1?10:0, marginBottom:i<sessions.length-1?10:0, borderBottom:i<sessions.length-1?`1px solid ${th.border}`:'none' }}>
+              <div style={{ flex:1 }}>
+                <p style={{ fontSize:13, fontWeight:600, color:th.text }}>{fmtDate(s.startTime)}</p>
+                <p style={{ fontSize:11, color:th.textSub }}>{s.gym} · {c} problems</p>
+              </div>
+              <div style={{ textAlign:'right' }}>
+                <p style={{ fontSize:13, fontWeight:700, color: sr>60?th.success:sr>40?th.warning:th.danger }}>{sr}%</p>
+                <p style={{ fontSize:11, color:th.textSub }}>sent</p>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// ── TWEAKS PANEL ─────────────────────────────────────────────────────────────
+function TweaksPanel({ tweaks, setTweaks, onClose }) {
+  const th = THEMES[tweaks.theme];
+  const update = (key, val) => {
+    const next = { ...tweaks, [key]: val };
+    setTweaks(next);
+    window.parent.postMessage({ type: '__edit_mode_set_keys', edits: next }, '*');
+  };
+
+  return (
+    <div style={{ position:'absolute', bottom:80, right:12, background:th.bg, border:`1px solid ${th.border}`, borderRadius:th.radius, padding:'16px', boxShadow:th.shadowMd, zIndex:300, width:240 }}>
+      <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:14 }}>
+        <span style={{ fontSize:14, fontWeight:700, color:th.text }}>Tweaks</span>
+        <button onClick={onClose} style={{ background:'none', border:'none', cursor:'pointer' }}><Icon name="x" size={16} color={th.textSub}/></button>
+      </div>
+      <div style={{ marginBottom:14 }}>
+        <p style={{ fontSize:11, fontWeight:600, color:th.textSub, letterSpacing:'0.08em', textTransform:'uppercase', marginBottom:8 }}>Theme</p>
+        {[['pure','Pure White'],['stone','Stone & Chalk'],['night','Night Mode']].map(([k,l]) => (
+          <button key={k} onClick={() => update('theme', k)}
+            style={{ width:'100%', padding:'8px 10px', marginBottom:4, textAlign:'left', borderRadius:th.radiusSm, border:`1px solid ${tweaks.theme===k ? th.accent : th.border}`, background: tweaks.theme===k ? th.accentSoft : th.surface, color: tweaks.theme===k ? th.accentSoftText : th.text, fontSize:13, fontWeight:500, cursor:'pointer', fontFamily:'DM Sans' }}>
+            {l}
+          </button>
+        ))}
+      </div>
+      <div>
+        <p style={{ fontSize:11, fontWeight:600, color:th.textSub, letterSpacing:'0.08em', textTransform:'uppercase', marginBottom:8 }}>Default Rest (sec)</p>
+        {[60,120,180,240,300].map(s => (
+          <button key={s} onClick={() => update('defaultRestSeconds', s)}
+            style={{ marginRight:6, marginBottom:6, padding:'5px 10px', borderRadius:th.radiusSm, border:`1px solid ${tweaks.defaultRestSeconds===s ? th.accent : th.border}`, background: tweaks.defaultRestSeconds===s ? th.accentSoft : th.surface, color: tweaks.defaultRestSeconds===s ? th.accentSoftText : th.text, fontSize:12, cursor:'pointer', fontFamily:'DM Sans' }}>
+            {s>=60?`${s/60}m`:`${s}s`}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ── APP ───────────────────────────────────────────────────────────────────────
+function App() {
+  const [tweaks, setTweaks] = useState(() => ({ ...TWEAK_DEFAULTS, ...loadLS('crux_tweaks', {}) }));
+  const [tab, setTab] = useState(() => loadLS('crux_tab', 'session'));
+  const [sessions, setSessions] = useState(() => loadLS('crux_sessions', []));
+  const [showTweaksPanel, setShowTweaksPanel] = useState(false);
+  const [tweaksAvailable, setTweaksAvailable] = useState(false);
+
+  const th = THEMES[tweaks.theme];
+
+  useEffect(() => { saveLS('crux_tweaks', tweaks); }, [tweaks]);
+  useEffect(() => { saveLS('crux_tab', tab); }, [tab]);
+  useEffect(() => { saveLS('crux_sessions', sessions); }, [sessions]);
+
+  // Tweaks mode integration
+  useEffect(() => {
+    const handler = (e) => {
+      if (e.data?.type === '__activate_edit_mode') setShowTweaksPanel(true);
+      if (e.data?.type === '__deactivate_edit_mode') setShowTweaksPanel(false);
+    };
+    window.addEventListener('message', handler);
+    window.parent.postMessage({ type: '__edit_mode_available' }, '*');
+    return () => window.removeEventListener('message', handler);
+  }, []);
+
+  const TABS = [
+    { id:'session', icon:'mountain', label:'Session' },
+    { id:'history', icon:'history', label:'History' },
+    { id:'stats',   icon:'stats',   label:'Stats' },
+  ];
+
+  return (
+    <div style={{ width:390, height:844, background:th.bg, display:'flex', flexDirection:'column', position:'relative', overflow:'hidden', boxShadow:'0 0 60px rgba(0,0,0,0.4)', borderRadius:16 }}>
+      {/* Status bar */}
+      <div style={{ background:th.bg, padding:'14px 20px 6px', display:'flex', justifyContent:'space-between', alignItems:'center', flexShrink:0 }}>
+        <span style={{ fontSize:13, fontWeight:700, color:th.text, fontVariantNumeric:'tabular-nums' }}>
+          {new Date().toLocaleTimeString('en-GB', {hour:'2-digit', minute:'2-digit'})}
+        </span>
+        <span style={{ fontSize:16, fontWeight:800, color:th.accent, letterSpacing:'-0.03em' }}>CRUX</span>
+        <span style={{ fontSize:11, color:th.textSub }}>●●●</span>
+      </div>
+
+      {/* Screen */}
+      <div style={{ flex:1, display:'flex', flexDirection:'column', overflow:'hidden' }}>
+        {tab === 'session' && <SessionScreen sessions={sessions} setSessions={setSessions} tweaks={tweaks}/>}
+        {tab === 'history' && <HistoryScreen sessions={sessions} setSessions={setSessions} tweaks={tweaks}/>}
+        {tab === 'stats'   && <StatsScreen sessions={sessions} tweaks={tweaks}/>}
+      </div>
+
+      {/* Bottom nav */}
+      <div style={{ background:th.tabBg, borderTop:`1px solid ${th.tabBorder}`, padding:'8px 0 20px', display:'flex', flexShrink:0 }}>
+        {TABS.map(t => (
+          <button key={t.id} onClick={() => setTab(t.id)}
+            style={{ flex:1, background:'none', border:'none', cursor:'pointer', display:'flex', flexDirection:'column', alignItems:'center', gap:4, padding:'6px 0' }}>
+            <Icon name={t.icon} size={22} color={tab===t.id ? th.accent : th.textMuted}/>
+            <span style={{ fontSize:10, fontWeight:tab===t.id ? 700 : 400, color:tab===t.id ? th.accent : th.textMuted, letterSpacing:'0.02em' }}>{t.label}</span>
+          </button>
+        ))}
+      </div>
+
+      {/* Tweaks panel */}
+      {showTweaksPanel && <TweaksPanel tweaks={tweaks} setTweaks={setTweaks} onClose={() => setShowTweaksPanel(false)}/>}
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+</script>
+</body>
+</html>
