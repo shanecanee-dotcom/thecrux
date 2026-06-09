@@ -14,7 +14,7 @@ function useViewport() {
   return w;
 }
 
-function App() {
+function App({ onSignOut }) {
   const [tweaks, setTweaks] = aState(() => ({ theme:'pure', defaultRestSeconds:240, gymName:'The Climbing Hangar', gradePref:'both', ...loadLS('crux_tweaks', {}) }));
   const [sessions, setSessions] = aState(() => loadLS('crux_sessions', []));
   const [currentSession, setCurrentSession] = aState(() => loadLS('crux_session', null));
@@ -52,7 +52,7 @@ function App() {
   const pageTitle = { session:'Session', history:'History', stats:'Stats', profile:'Profile' }[tab];
 
   const renderScreen = () => {
-    if (showSettings) return <SettingsScreen tweaks={tweaks} setTweaks={setTweaks} sessions={sessions} setSessions={setSessions} setCurrentSession={setCurrentSession} onClose={() => setShowSettings(false)}/>;
+    if (showSettings) return <SettingsScreen tweaks={tweaks} setTweaks={setTweaks} sessions={sessions} setSessions={setSessions} setCurrentSession={setCurrentSession} onClose={() => setShowSettings(false)} onSignOut={onSignOut}/>;
     switch (tab) {
       case 'session': return <SessionScreen sessions={sessions} setSessions={setSessions} currentSession={currentSession} setCurrentSession={setCurrentSession} tweaks={tweaks} goals={goals}/>;
       case 'history': return <HistoryScreen sessions={sessions} setSessions={setSessions} tweaks={tweaks}/>;
@@ -124,4 +124,41 @@ function App() {
   );
 }
 
-ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+function AppRoot() {
+  const [user, setUser] = aState(() => loadLS('crux_auth_user', null));
+
+  aEffect(() => {
+    document.body.style.overflow = user ? 'hidden' : '';
+  }, [user]);
+
+  // On mount, check for an active Supabase session (handles email confirmation
+  // redirects and token refresh after a browser restart).
+  aEffect(() => {
+    if (typeof Auth === 'undefined') return;
+    if (loadLS('crux_auth_user', null)) return; // already have local session
+    Auth.getSession().then(session => {
+      if (session) {
+        const stored = { email: session.user?.email || '', authed: true };
+        saveLS('crux_auth_user', stored);
+        setUser(stored);
+      }
+    }).catch(() => {});
+  }, []);
+
+  const handleAuthed = (u) => {
+    const stored = u && u.email ? u : { authed: true };
+    saveLS('crux_auth_user', stored);
+    setUser(stored);
+  };
+
+  const handleSignOut = async () => {
+    try { await Auth.signOut(); } catch(e) {}
+    saveLS('crux_auth_user', null);
+    setUser(null);
+  };
+
+  if (!user) return <AuthFlow onAuthed={handleAuthed}/>;
+  return <App onSignOut={handleSignOut}/>;
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<AppRoot/>);

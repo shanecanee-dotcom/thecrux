@@ -12,10 +12,10 @@
 // database is what actually protects each user's data. Never ship the
 // "service_role" key to the client.
 
-const SUPABASE_URL      = 'https://YOUR-PROJECT-ref.supabase.co'; // ← paste
-const SUPABASE_ANON_KEY = 'YOUR-ANON-PUBLIC-KEY';                 // ← paste
+const SUPABASE_URL      = 'https://psbgsdxfjbrdhhuuquln.supabase.co';
+const SUPABASE_ANON_KEY = 'sb_publishable_lZEMlysDd8Mt0DTykjfiog_Sf5UUB-j';
 
-const DEMO_MODE = true;   // ← set to false once the two values above are real
+const DEMO_MODE = false;
 
 // ── client (created lazily, only when live) ──────────────────────────────────
 let _client = null;

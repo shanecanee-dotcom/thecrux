@@ -130,7 +130,7 @@ function ProfileScreen({ sessions, currentSession, profile, setProfile, goals, s
 }
 
 // ── SETTINGS ──────────────────────────────────────────────────────────────────
-function SettingsScreen({ tweaks, setTweaks, sessions, setSessions, setCurrentSession, onClose }) {
+function SettingsScreen({ tweaks, setTweaks, sessions, setSessions, setCurrentSession, onClose, onSignOut }) {
   const th = THEMES[tweaks.theme];
   const set = (k, v) => setTweaks({ ...tweaks, [k]: v });
   const REST = [60,120,180,240,300];
@@ -196,6 +196,14 @@ function SettingsScreen({ tweaks, setTweaks, sessions, setSessions, setCurrentSe
             <Icon name="trash" size={16} color={th.danger}/> Clear all data
           </button>
         </Row>
+
+        {onSignOut && (
+          <Row>
+            <button onClick={onSignOut} style={{ width:'100%', padding:'13px', borderRadius:th.radius, border:`1px solid ${th.border}`, background:th.surface, color:th.textSub, fontSize:14, fontWeight:600, cursor:'pointer', fontFamily:'DM Sans', display:'flex', alignItems:'center', justifyContent:'center', gap:8 }}>
+              Sign out
+            </button>
+          </Row>
+        )}
 
         <p style={{ textAlign:'center', fontSize:12, color:th.textMuted, marginTop:8 }}>CRUX · climbing tracker</p>
       </div>
