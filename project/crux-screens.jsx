@@ -119,7 +119,14 @@ function SessionScreen({ sessions, setSessions, currentSession, setCurrentSessio
     });
     setSessionNotes('');
   };
-  const endSession = () => { setSessions(prev => [{ ...currentSession, endTime: Date.now() }, ...prev]); setCurrentSession(null); };
+  const endSession = () => {
+    setSessions(prev => [{ ...currentSession, endTime: Date.now() }, ...prev]);
+    setCurrentSession(null);
+    setCragInput('');
+    setSectorInput('');
+    setRockType(null);
+    setConditions(null);
+  };
   const addClimb = (climb) => { setCurrentSession(s => ({ ...s, climbs: [...(s.climbs||[]), climb] })); setShowAdd(false); setShowTimer(true); };
   const deleteClimb = (id) => setCurrentSession(s => ({ ...s, climbs: s.climbs.filter(c => c.id !== id) }));
   const updateClimb = (id, ch) => setCurrentSession(s => ({ ...s, climbs: s.climbs.map(c => c.id === id ? { ...c, ...ch } : c) }));
