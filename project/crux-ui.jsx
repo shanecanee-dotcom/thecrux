@@ -359,4 +359,31 @@ function ClimbDetailModal({ climb, tweaks, onClose, onUpdate, onDelete }) {
   );
 }
 
-Object.assign(window, { Label, RestTimer, GradeSelector, AddClimbModal, ClimbCard, ClimbDetailModal });
+// ── EXERCISE CARD (hangboard training) ────────────────────────────────────────
+function ExerciseCard({ exercise, th, onDelete }) {
+  const grip = GRIP_TYPES.find(g => g.id === exercise.gripType)?.label || exercise.gripType;
+  return (
+    <div style={{ background:th.card, border:`1px solid ${th.border}`, borderRadius:th.radius, padding:'10px 12px', display:'flex', alignItems:'center', gap:12, boxShadow:th.shadow }}>
+      <div style={{ background:th.accentSoft, borderRadius:th.radiusSm, padding:'6px 8px', flexShrink:0, textAlign:'center', minWidth:44 }}>
+        <p style={{ fontSize:14, fontWeight:800, color:th.accentSoftText, fontFamily:"'DM Mono', monospace", lineHeight:1 }}>{exercise.edgeSize}</p>
+        <p style={{ fontSize:9, color:th.accentSoftText, letterSpacing:'0.05em', marginTop:1 }}>mm</p>
+      </div>
+      <div style={{ flex:1, minWidth:0 }}>
+        <p style={{ fontSize:13, fontWeight:700, color:th.text }}>{grip}</p>
+        <p style={{ fontSize:12, color:th.textSub }}>
+          {exercise.hangTime}s × {exercise.sets} sets
+          {exercise.restTime ? ` · ${fmtRest(exercise.restTime)} rest` : ''}
+          {exercise.weight ? ` · ${exercise.weight > 0 ? '+' : ''}${exercise.weight}kg` : ''}
+        </p>
+        {exercise.notes && <p style={{ fontSize:11, color:th.textSub, fontStyle:'italic', marginTop:2 }}>{exercise.notes}</p>}
+      </div>
+      {onDelete && (
+        <button onClick={onDelete} className="icon-btn" style={{ background:'none', border:'none', flexShrink:0 }}>
+          <Icon name="trash" size={15} color={th.textMuted}/>
+        </button>
+      )}
+    </div>
+  );
+}
+
+Object.assign(window, { Label, RestTimer, GradeSelector, AddClimbModal, ClimbCard, ClimbDetailModal, ExerciseCard });

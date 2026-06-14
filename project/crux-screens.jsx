@@ -208,6 +208,16 @@ function SessionScreen({ sessions, setSessions, currentSession, setCurrentSessio
   const sends = climbs.filter(isSend).length;
   const isOutdoor = currentSession?.type === 'outdoor';
 
+  // ── Conflict: training session is active ──
+  if (currentSession?.type === 'training') return (
+    <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', height:'100%', padding:40, gap:14, textAlign:'center' }}>
+      <Icon name="barbell" size={40} color={th.textMuted}/>
+      <p style={{ fontSize:16, fontWeight:700, color:th.text }}>Training session active</p>
+      <p style={{ fontSize:14, color:th.textSub }}>End your training session before starting a climbing session.</p>
+      <button onClick={() => onNavigate?.('training')} style={{ padding:'12px 24px', borderRadius:th.radius, background:th.surface, border:`1px solid ${th.border}`, color:th.text, fontSize:14, fontWeight:600, cursor:'pointer', fontFamily:'DM Sans' }}>Go to Training →</button>
+    </div>
+  );
+
   // ── Dashboard (no active session) ──
   if (!currentSession) {
     const d = computeDerived(sessions);
@@ -383,6 +393,37 @@ function HistoryScreen({ sessions, setSessions, tweaks, onNavigate }) {
     <div className="screen-pad scroll">
       <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
         {sessions.map(s => {
+          if (s.type === 'training') {
+            const isOpen = expanded === s.id;
+            const dur = s.endTime ? Math.round((s.endTime - s.startTime)/60000) : null;
+            return (
+              <div key={s.id} style={{ background:th.card, border:`1px solid ${th.border}`, borderRadius:th.radius, overflow:'hidden', boxShadow:th.shadow }}>
+                <button onClick={() => setExpanded(isOpen ? null : s.id)} style={{ width:'100%', padding:'14px 16px', background:'none', border:'none', cursor:'pointer', display:'flex', justifyContent:'space-between', alignItems:'center', textAlign:'left' }}>
+                  <div>
+                    <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:2 }}>
+                      <p style={{ fontSize:15, fontWeight:700, color:th.text }}>Hangboard</p>
+                      <span style={{ fontSize:10, fontWeight:700, color:th.warning, background:th.warningBg, padding:'2px 7px', borderRadius:th.radiusSm, letterSpacing:'0.05em' }}>TRAIN</span>
+                    </div>
+                    <p style={{ fontSize:12, color:th.textSub }}>{fmtDate(s.startTime)}{dur?` · ${dur}min`:''}</p>
+                  </div>
+                  <div style={{ display:'flex', alignItems:'center', gap:12 }}>
+                    <div style={{ textAlign:'right' }}><p style={{ fontSize:18, fontWeight:700, color:th.text }}>{s.exercises?.length||0}</p><p style={{ fontSize:11, color:th.textSub }}>sets</p></div>
+                    <Icon name={isOpen?'chevDown':'chevRight'} size={16} color={th.textSub}/>
+                  </div>
+                </button>
+                {isOpen && (
+                  <div style={{ borderTop:`1px solid ${th.border}` }}>
+                    <div style={{ padding:'12px 14px', display:'flex', flexDirection:'column', gap:8 }}>
+                      {(s.exercises||[]).map(ex => <ExerciseCard key={ex.id} exercise={ex} th={th}/>)}
+                    </div>
+                    <div style={{ padding:'0 14px 12px' }}>
+                      <button onClick={() => setSessions(prev => prev.filter(x => x.id !== s.id))} style={{ width:'100%', padding:'10px', borderRadius:th.radiusSm, border:`1px solid ${th.dangerBg}`, background:th.dangerBg, color:th.danger, fontSize:13, fontWeight:600, cursor:'pointer', fontFamily:'DM Sans' }}>Delete session</button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          }
           const sends = s.climbs?.filter(isSend).length||0;
           const flashes = s.climbs?.filter(c => c.outcome==='flash').length||0;
           const isOpen = expanded === s.id;
@@ -437,6 +478,7 @@ function HistoryScreen({ sessions, setSessions, tweaks, onNavigate }) {
           );
         })}
       </div>
+
       {detail && <ClimbDetailModal climb={detail} tweaks={tweaks} onClose={() => setDetail(null)}
         onUpdate={(ch) => setSessions(prev => prev.map(s => s.id===detail._sid ? { ...s, climbs: s.climbs.map(c => c.id===detail.id ? {...c,...ch} : c) } : s))}
         onDelete={() => setSessions(prev => prev.map(s => s.id===detail._sid ? { ...s, climbs: s.climbs.filter(c => c.id!==detail.id) } : s))}/>}
@@ -533,11 +575,11 @@ function StatsScreen({ sessions, tweaks, onNavigate }) {
 
       <div style={{ background:th.card, border:`1px solid ${th.border}`, borderRadius:th.radius, padding:'16px', boxShadow:th.shadow }}>
         <p style={{ fontSize:13, fontWeight:700, color:th.text, marginBottom:14 }}>Recent Sessions</p>
-        {sessions.slice(0,8).map((s,i) => {
+        {sessions.filter(s => s.type !== 'training').slice(0,8).map((s,i,arr) => {
           const c = s.climbs?.length||0;
           const sr = c > 0 ? Math.round((s.climbs.filter(isSend).length/c)*100) : 0;
           return (
-            <div key={s.id} style={{ display:'flex', alignItems:'center', gap:10, paddingBottom:i<Math.min(sessions.length,8)-1?10:0, marginBottom:i<Math.min(sessions.length,8)-1?10:0, borderBottom:i<Math.min(sessions.length,8)-1?`1px solid ${th.border}`:'none' }}>
+            <div key={s.id} style={{ display:'flex', alignItems:'center', gap:10, paddingBottom:i<arr.length-1?10:0, marginBottom:i<arr.length-1?10:0, borderBottom:i<arr.length-1?`1px solid ${th.border}`:'none' }}>
               <div style={{ flex:1 }}><p style={{ fontSize:13, fontWeight:600, color:th.text }}>{fmtDate(s.startTime)}</p><p style={{ fontSize:11, color:th.textSub }}>{s.gym} · {c} problems</p></div>
               <div style={{ textAlign:'right' }}><p style={{ fontSize:13, fontWeight:700, color: sr>60?th.success:sr>40?th.warning:th.danger }}>{sr}%</p><p style={{ fontSize:11, color:th.textSub }}>sent</p></div>
             </div>

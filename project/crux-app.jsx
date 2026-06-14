@@ -2,10 +2,11 @@
 const { useState: aState, useEffect: aEffect, useRef: aRef, useCallback: aCallback } = React;
 
 const NAV = [
-  { id:'session', icon:'mountain', label:'Session' },
-  { id:'history', icon:'history',  label:'History' },
-  { id:'stats',   icon:'stats',    label:'Stats' },
-  { id:'profile', icon:'user',     label:'Profile' },
+  { id:'session',  icon:'mountain', label:'Session' },
+  { id:'training', icon:'barbell',  label:'Train'   },
+  { id:'history',  icon:'history',  label:'History' },
+  { id:'stats',    icon:'stats',    label:'Stats'   },
+  { id:'profile',  icon:'user',     label:'Profile' },
 ];
 
 function useViewport() {
@@ -149,15 +150,16 @@ function App({ onSignOut, userId, initialDbData }) {
     return () => window.removeEventListener('message', handler);
   }, []);
 
-  const pageTitle = { session:'Session', history:'History', stats:'Stats', profile:'Profile' }[tab];
+  const pageTitle = { session:'Session', training:'Training', history:'History', stats:'Stats', profile:'Profile' }[tab];
 
   const renderScreen = () => {
     if (showSettings) return <SettingsScreen tweaks={tweaks} setTweaks={setTweaks} sessions={sessions} setSessions={setSessions} setCurrentSession={setCurrentSession} onClose={() => setShowSettings(false)} onSignOut={onSignOut}/>;
     switch (tab) {
-      case 'session': return <SessionScreen sessions={sessions} setSessions={setSessions} currentSession={currentSession} setCurrentSession={setCurrentSession} tweaks={tweaks} goals={goals} onNavigate={setTab}/>;
-      case 'history': return <HistoryScreen sessions={sessions} setSessions={setSessions} tweaks={tweaks} onNavigate={setTab}/>;
-      case 'stats':   return <StatsScreen sessions={sessions} tweaks={tweaks} onNavigate={setTab}/>;
-      case 'profile': return <ProfileScreen sessions={sessions} currentSession={currentSession} profile={profile} setProfile={setProfile} goals={goals} setGoals={setGoals} tweaks={tweaks} onOpenSettings={() => setShowSettings(true)}/>;
+      case 'session':  return <SessionScreen sessions={sessions} setSessions={setSessions} currentSession={currentSession} setCurrentSession={setCurrentSession} tweaks={tweaks} goals={goals} onNavigate={setTab}/>;
+      case 'training': return <TrainingScreen sessions={sessions} setSessions={setSessions} currentSession={currentSession} setCurrentSession={setCurrentSession} tweaks={tweaks} onNavigate={setTab}/>;
+      case 'history':  return <HistoryScreen sessions={sessions} setSessions={setSessions} tweaks={tweaks} onNavigate={setTab}/>;
+      case 'stats':    return <StatsScreen sessions={sessions} tweaks={tweaks} onNavigate={setTab}/>;
+      case 'profile':  return <ProfileScreen sessions={sessions} currentSession={currentSession} profile={profile} setProfile={setProfile} goals={goals} setGoals={setGoals} tweaks={tweaks} onOpenSettings={() => setShowSettings(true)}/>;
     }
   };
 

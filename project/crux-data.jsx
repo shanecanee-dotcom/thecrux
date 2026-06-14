@@ -91,6 +91,16 @@ const CONDITIONS = [
   { id:'wet',     label:'Wet' },
 ];
 
+const GRIP_TYPES = [
+  { id:'half',  label:'Half Crimp' },
+  { id:'open',  label:'Open Hand' },
+  { id:'full',  label:'Full Crimp' },
+  { id:'pinch', label:'Pinch' },
+  { id:'drag',  label:'3-Finger Drag' },
+];
+
+const EDGE_SIZES = [5, 8, 10, 12, 15, 18, 20, 25, 30, 40];
+
 // ── UTILS ──────────────────────────────────────────────────────────────────────
 const uid = () => Math.random().toString(36).slice(2, 9);
 const fmt = (s) => `${String(Math.floor(s/60)).padStart(2,'0')}:${String(s%60).padStart(2,'0')}`;
@@ -202,6 +212,7 @@ const Icon = ({ name, size=20, color='currentColor' }) => {
     logo: <path d="M6 20 12 4l6 16M8.5 14h7"/>,
     home: <g><path d="M3 9l9-6 9 6v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></g>,
     tree: <g><polygon points="12 2 20 18 4 18"/><rect x="10" y="18" width="4" height="4"/></g>,
+    barbell: <g><line x1="6" y1="12" x2="18" y2="12"/><line x1="6" y1="7" x2="6" y2="17"/><line x1="9" y1="9" x2="9" y2="15"/><line x1="15" y1="9" x2="15" y2="15"/><line x1="18" y1="7" x2="18" y2="17"/></g>,
   };
   return (
     <svg style={s} viewBox="0 0 24 24" fill={['flash','play','pause','logo'].includes(name)?color:'none'} stroke={['flash','play','pause'].includes(name)?'none':color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -212,6 +223,7 @@ const Icon = ({ name, size=20, color='currentColor' }) => {
 
 Object.assign(window, {
   THEMES, V_GRADES, FONT_GRADES, WALL_TYPES, HOLD_COLORS, ROCK_TYPES, CONDITIONS,
+  GRIP_TYPES, EDGE_SIZES,
   uid, fmt, fmtDate, fmtTime, fmtRest, loadLS, saveLS, weekIndex, isSend,
   computeDerived, ACHIEVEMENTS, evalAchievements, Icon,
 });
