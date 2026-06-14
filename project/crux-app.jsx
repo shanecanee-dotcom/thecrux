@@ -26,6 +26,10 @@ function App({ onSignOut, userId, initialDbData }) {
     return lsOnly.length > 0 ? [...dbSessions, ...lsOnly] : dbSessions;
   });
 
+  // IDs deleted this session — prevents the sync from re-adding a session before
+  // its DB delete resolves (race: visibilitychange fires while delete is in-flight).
+  const deletedIdsRef = aRef(new Set());
+
   // Wrapped setter: fires DB upserts/deletes at the point of each state change
   // so there's no async race between migration uploads and deletions.
   const setSessions = aCallback(update => {
@@ -35,7 +39,7 @@ function App({ onSignOut, userId, initialDbData }) {
         const prevMap = new Map(prev.map(s => [s.id, JSON.stringify(s)]));
         const nextIds = new Set(next.map(s => s.id));
         next.forEach(s => { if (prevMap.get(s.id) !== JSON.stringify(s)) DB.upsertSession(userId, s).catch(console.error); });
-        prev.forEach(s => { if (!nextIds.has(s.id)) DB.deleteSession(userId, s.id).catch(console.error); });
+        prev.forEach(s => { if (!nextIds.has(s.id)) { deletedIdsRef.current.add(s.id); DB.deleteSession(userId, s.id).catch(console.error); } });
       }
       return next;
     });
@@ -87,7 +91,7 @@ function App({ onSignOut, userId, initialDbData }) {
         const dbIds = new Set(dbSessions.map(s => s.id));
         setSessionsRaw(prev => {
           const localIds = new Set(prev.map(s => s.id));
-          const toAdd    = dbSessions.filter(s => !localIds.has(s.id));
+          const toAdd    = dbSessions.filter(s => !localIds.has(s.id) && !deletedIdsRef.current.has(s.id));
           const toRemove = new Set(prev.filter(s => initialDbIds.has(s.id) && !dbIds.has(s.id)).map(s => s.id));
           // Re-try any local sessions that haven't reached DB yet
           prev.filter(s => !dbIds.has(s.id) && !initialDbIds.has(s.id))
