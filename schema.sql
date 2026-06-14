@@ -24,7 +24,7 @@ create policy "Users manage own profile" on public.profiles
 -- One row per climbing session. The full session JSON (including climbs[])
 -- is stored in the `data` column so the schema stays flexible.
 create table if not exists public.sessions (
-  id         uuid        primary key,
+  id         text        primary key,
   user_id    uuid        not null references auth.users(id) on delete cascade,
   data       jsonb       not null,
   updated_at timestamptz not null default now()
