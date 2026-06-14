@@ -129,12 +129,13 @@ function GradeSelector({ value, onChange, th, pref }) {
 }
 
 // ── ADD CLIMB MODAL ──────────────────────────────────────────────────────────────
-function AddClimbModal({ tweaks, onSave, onClose }) {
+function AddClimbModal({ tweaks, onSave, onClose, outdoor = false }) {
   const th = THEMES[tweaks.theme];
   const [grade, setGrade] = uState(null);
   const [outcome, setOutcome] = uState(null);
   const [holdColor, setHoldColor] = uState(null);
   const [wallType, setWallType] = uState(null);
+  const [routeName, setRouteName] = uState('');
   const [photo, setPhoto] = uState(null);
   const fileRef = uRef();
 
@@ -145,7 +146,11 @@ function AddClimbModal({ tweaks, onSave, onClose }) {
     reader.readAsDataURL(file);
   };
   const canSave = grade && outcome;
-  const save = () => onSave({ id: uid(), grade, outcome, attempts:1, wallType, holdColor, photo, notes:'', time: Date.now() });
+  const save = () => onSave({
+    id: uid(), grade, outcome, attempts: 1, wallType,
+    ...(outdoor ? { routeName: routeName.trim() || undefined } : { holdColor }),
+    photo, notes: '', time: Date.now(),
+  });
 
   return (
     <div className="sheet-wrap" onClick={onClose}>
@@ -157,6 +162,14 @@ function AddClimbModal({ tweaks, onSave, onClose }) {
         </div>
 
         <div style={{ padding:'20px 20px 0' }}>
+          {outdoor && (
+            <div style={{ marginBottom:22 }}>
+              <Label th={th}>Route name <span style={{ fontWeight:400, color:th.textMuted }}>(optional)</span></Label>
+              <input value={routeName} onChange={e => setRouteName(e.target.value)} placeholder="e.g. The Ace, Karma, Alchemy…"
+                style={{ width:'100%', background:th.surface, border:`1px solid ${th.border}`, borderRadius:th.radius, padding:'12px 14px', fontSize:15, color:th.text, outline:'none', fontFamily:'DM Sans', display:'block' }}/>
+            </div>
+          )}
+
           <div style={{ marginBottom:22 }}>
             <Label th={th}>Grade</Label>
             <GradeSelector value={grade} onChange={setGrade} th={th} pref={tweaks.gradePref}/>
@@ -190,14 +203,16 @@ function AddClimbModal({ tweaks, onSave, onClose }) {
             </div>
           </div>
 
-          <div style={{ marginBottom:22 }}>
-            <Label th={th}>Hold Colour</Label>
-            <div style={{ display:'flex', gap:10, flexWrap:'wrap' }}>
-              {HOLD_COLORS.map(c => (
-                <button key={c.id} onClick={() => setHoldColor(holdColor===c.id ? null : c.id)} title={c.label} style={{ width:36, height:36, borderRadius:'50%', background:c.hex, border:`3px solid ${holdColor===c.id ? th.text : 'transparent'}`, cursor:'pointer', outline: holdColor===c.id ? `2px solid ${th.bg}` : 'none', outlineOffset:-4 }}/>
-              ))}
+          {!outdoor && (
+            <div style={{ marginBottom:22 }}>
+              <Label th={th}>Hold Colour</Label>
+              <div style={{ display:'flex', gap:10, flexWrap:'wrap' }}>
+                {HOLD_COLORS.map(c => (
+                  <button key={c.id} onClick={() => setHoldColor(holdColor===c.id ? null : c.id)} title={c.label} style={{ width:36, height:36, borderRadius:'50%', background:c.hex, border:`3px solid ${holdColor===c.id ? th.text : 'transparent'}`, cursor:'pointer', outline: holdColor===c.id ? `2px solid ${th.bg}` : 'none', outlineOffset:-4 }}/>
+                ))}
+              </div>
             </div>
-          </div>
+          )}
 
           <div style={{ marginBottom:28 }}>
             <Label th={th}>Photo</Label>
@@ -241,7 +256,10 @@ function ClimbCard({ climb, th, onDelete, onUpdate, onOpen }) {
   return (
     <div style={{ background:th.card, border:`1.5px solid ${isAttempting ? th.danger+'44' : th.border}`, borderRadius:th.radius, overflow:'hidden', boxShadow:th.shadow }}>
       <div onClick={onOpen} style={{ padding:'12px 14px', display:'flex', alignItems:'center', gap:10, cursor: onOpen?'pointer':'default' }}>
-        {hc && <div style={{ width:9, height:9, borderRadius:'50%', background:hc.hex, flexShrink:0, border:`1px solid ${th.border}` }}/>}
+        {climb.routeName
+          ? <span style={{ fontSize:13, fontWeight:600, color:th.textSub, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', maxWidth:110 }}>{climb.routeName}</span>
+          : hc && <div style={{ width:9, height:9, borderRadius:'50%', background:hc.hex, flexShrink:0, border:`1px solid ${th.border}` }}/>
+        }
         <span style={{ fontFamily:"'DM Mono', monospace", fontSize:15, fontWeight:600, color:th.text, minWidth:34 }}>{climb.grade?.grade || '?'}</span>
         {wt && <span style={{ fontSize:11, color:th.textSub, background:th.surface, border:`1px solid ${th.border}`, borderRadius:4, padding:'1px 6px' }}>{wt.label}</span>}
         {climb.notes && <Icon name="note" size={13} color={th.textMuted}/>}
@@ -286,12 +304,15 @@ function ClimbDetailModal({ climb, tweaks, onClose, onUpdate, onDelete }) {
     <div className="sheet-wrap" onClick={() => { saveNotes(); onClose(); }}>
       <div className="sheet scroll" style={{ background:th.bg }} onClick={e => e.stopPropagation()}>
         <div style={{ display:'flex', justifyContent:'center', padding:'12px 0 0' }}><div style={{ width:36, height:4, background:th.borderStrong, borderRadius:2 }}/></div>
-        <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'14px 20px 16px' }}>
-          <div style={{ display:'flex', alignItems:'center', gap:10 }}>
-            <span style={{ fontFamily:"'DM Mono', monospace", fontSize:24, fontWeight:700, color:th.text }}>{climb.grade?.grade}</span>
-            <span style={{ fontSize:12, color:th.textSub }}>{climb.grade?.system==='v'?'V-Scale':'Font'}</span>
+        <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', padding:'14px 20px 16px' }}>
+          <div>
+            <div style={{ display:'flex', alignItems:'center', gap:10 }}>
+              <span style={{ fontFamily:"'DM Mono', monospace", fontSize:24, fontWeight:700, color:th.text }}>{climb.grade?.grade}</span>
+              <span style={{ fontSize:12, color:th.textSub }}>{climb.grade?.system==='v'?'V-Scale':'Font'}</span>
+            </div>
+            {climb.routeName && <p style={{ fontSize:15, fontWeight:600, color:th.text, marginTop:3 }}>{climb.routeName}</p>}
           </div>
-          <span style={{ fontSize:13, fontWeight:700, color:oc.color, background:oc.bg, padding:'5px 12px', borderRadius:th.radiusSm }}>{oc.label}</span>
+          <span style={{ fontSize:13, fontWeight:700, color:oc.color, background:oc.bg, padding:'5px 12px', borderRadius:th.radiusSm, flexShrink:0 }}>{oc.label}</span>
         </div>
 
         {climb.photo && <div style={{ padding:'0 20px 16px' }}><img src={climb.photo} style={{ width:'100%', borderRadius:th.radius, maxHeight:280, objectFit:'cover' }} alt="climb"/></div>}

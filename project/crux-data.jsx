@@ -75,6 +75,22 @@ const HOLD_COLORS = [
   { id:'grey',   label:'Grey',   hex:'#9E9E9E' },
 ];
 
+const ROCK_TYPES = [
+  { id:'limestone', label:'Limestone' },
+  { id:'sandstone', label:'Sandstone' },
+  { id:'granite',   label:'Granite' },
+  { id:'gritstone', label:'Gritstone' },
+  { id:'quartzite', label:'Quartzite' },
+  { id:'other',     label:'Other' },
+];
+
+const CONDITIONS = [
+  { id:'perfect', label:'Perfect' },
+  { id:'dry',     label:'Dry' },
+  { id:'damp',    label:'Damp' },
+  { id:'wet',     label:'Wet' },
+];
+
 // ── UTILS ──────────────────────────────────────────────────────────────────────
 const uid = () => Math.random().toString(36).slice(2, 9);
 const fmt = (s) => `${String(Math.floor(s/60)).padStart(2,'0')}:${String(s%60).padStart(2,'0')}`;
@@ -179,6 +195,8 @@ const Icon = ({ name, size=20, color='currentColor' }) => {
     holds: <g><circle cx="7" cy="7" r="3"/><circle cx="17" cy="9" r="2.5"/><circle cx="9" cy="17" r="2.5"/></g>,
     arrowUp: <path d="M12 19V5M5 12l7-7 7 7"/>,
     logo: <path d="M6 20 12 4l6 16M8.5 14h7"/>,
+    home: <g><path d="M3 9l9-6 9 6v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></g>,
+    tree: <g><polygon points="12 2 20 18 4 18"/><rect x="10" y="18" width="4" height="4"/></g>,
   };
   return (
     <svg style={s} viewBox="0 0 24 24" fill={['flash','play','pause','logo'].includes(name)?color:'none'} stroke={['flash','play','pause'].includes(name)?'none':color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -188,7 +206,7 @@ const Icon = ({ name, size=20, color='currentColor' }) => {
 };
 
 Object.assign(window, {
-  THEMES, V_GRADES, FONT_GRADES, WALL_TYPES, HOLD_COLORS,
+  THEMES, V_GRADES, FONT_GRADES, WALL_TYPES, HOLD_COLORS, ROCK_TYPES, CONDITIONS,
   uid, fmt, fmtDate, fmtTime, fmtRest, loadLS, saveLS, weekIndex, isSend,
   computeDerived, ACHIEVEMENTS, evalAchievements, Icon,
 });

@@ -77,7 +77,12 @@ function SessionScreen({ sessions, setSessions, currentSession, setCurrentSessio
   const [showAdd, setShowAdd] = sState(false);
   const [showTimer, setShowTimer] = sState(false);
   const [detail, setDetail] = sState(null);
+  const [sessionType, setSessionType] = sState('indoor');
   const [gymInput, setGymInput] = sState(tweaks.gymName);
+  const [cragInput, setCragInput] = sState('');
+  const [sectorInput, setSectorInput] = sState('');
+  const [rockType, setRockType] = sState(null);
+  const [conditions, setConditions] = sState(null);
   const [sessionNotes, setSessionNotes] = sState('');
   const [elapsed, setElapsed] = sState(() =>
     currentSession?.startTime ? Math.floor((Date.now() - currentSession.startTime) / 1000) : 0
@@ -96,8 +101,22 @@ function SessionScreen({ sessions, setSessions, currentSession, setCurrentSessio
     return h > 0 ? `${h}h ${m}m` : `${m}m`;
   };
 
+  const canStart = sessionType === 'indoor' || cragInput.trim().length > 0;
+
   const startSession = () => {
-    setCurrentSession({ id: uid(), gym: gymInput, notes: sessionNotes || undefined, startTime: Date.now(), climbs: [] });
+    setCurrentSession({
+      id: uid(),
+      type: sessionType,
+      gym: sessionType === 'indoor' ? gymInput : cragInput.trim(),
+      ...(sessionType === 'outdoor' && {
+        sector: sectorInput.trim() || undefined,
+        rockType: rockType || undefined,
+        conditions: conditions || undefined,
+      }),
+      notes: sessionNotes.trim() || undefined,
+      startTime: Date.now(),
+      climbs: [],
+    });
     setSessionNotes('');
   };
   const endSession = () => { setSessions(prev => [{ ...currentSession, endTime: Date.now() }, ...prev]); setCurrentSession(null); };
@@ -108,13 +127,14 @@ function SessionScreen({ sessions, setSessions, currentSession, setCurrentSessio
   const climbs = currentSession?.climbs || [];
   const sends = climbs.filter(isSend).length;
   const weeklyDone = sessions.filter(s => weekIndex(s.startTime) === weekIndex(Date.now())).length;
+  const isOutdoor = currentSession?.type === 'outdoor';
 
   // ── No active session ──
   if (!currentSession) return (
     <div className="screen-pad scroll" style={{ flex:1 }}>
-      <div style={{ marginBottom:24 }}>
+      <div style={{ marginBottom:20 }}>
         <h1 style={{ fontSize:30, fontWeight:700, color:th.text, lineHeight:1.05, letterSpacing:'-0.02em' }}>Ready to climb?</h1>
-        <p style={{ fontSize:15, color:th.textSub, marginTop:6 }}>Start a session to track your boulders.</p>
+        <p style={{ fontSize:15, color:th.textSub, marginTop:6 }}>Start a session to track your problems.</p>
       </div>
 
       {goals.weeklySessions > 0 && (
@@ -129,23 +149,77 @@ function SessionScreen({ sessions, setSessions, currentSession, setCurrentSessio
         </div>
       )}
 
-      <Label th={th}>Gym</Label>
-      <div style={{ display:'flex', alignItems:'center', gap:10, background:th.surface, borderRadius:th.radius, border:`1px solid ${th.border}`, padding:'12px 14px', marginBottom:16 }}>
-        <Icon name="location" size={16} color={th.textSub}/>
-        <input value={gymInput} onChange={e => setGymInput(e.target.value)} placeholder="Gym name" style={{ background:'none', border:'none', outline:'none', fontSize:15, color:th.text, flex:1, fontFamily:'DM Sans' }}/>
+      {/* Session type */}
+      <div style={{ display:'flex', gap:10, marginBottom:20 }}>
+        {[
+          { id:'indoor',  icon:'home', label:'Indoor',  sub:'Gym climbing' },
+          { id:'outdoor', icon:'tree', label:'Outdoor', sub:'Crag / boulderfield' },
+        ].map(t => (
+          <button key={t.id} onClick={() => setSessionType(t.id)} style={{ flex:1, padding:'14px 10px', borderRadius:th.radius, border:`2px solid ${sessionType===t.id ? th.accent : th.border}`, background: sessionType===t.id ? th.accentSoft : th.surface, cursor:'pointer', display:'flex', flexDirection:'column', alignItems:'center', gap:5 }}>
+            <Icon name={t.icon} size={22} color={sessionType===t.id ? th.accentSoftText : th.textSub}/>
+            <span style={{ fontSize:14, fontWeight:700, color:sessionType===t.id ? th.accentSoftText : th.text }}>{t.label}</span>
+            <span style={{ fontSize:11, color:sessionType===t.id ? th.accentSoftText : th.textSub }}>{t.sub}</span>
+          </button>
+        ))}
       </div>
+
+      {sessionType === 'outdoor' ? (
+        <>
+          <Label th={th}>Area / Crag</Label>
+          <div style={{ display:'flex', alignItems:'center', gap:10, background:th.surface, borderRadius:th.radius, border:`1px solid ${th.border}`, padding:'12px 14px', marginBottom:16 }}>
+            <Icon name="location" size={16} color={th.textSub}/>
+            <input value={cragInput} onChange={e => setCragInput(e.target.value)} placeholder="e.g. Fontainebleau, Stanage Edge" style={{ background:'none', border:'none', outline:'none', fontSize:15, color:th.text, flex:1, fontFamily:'DM Sans' }}/>
+          </div>
+
+          <Label th={th}>Sector <span style={{ fontWeight:400, color:th.textMuted }}>(optional)</span></Label>
+          <div style={{ background:th.surface, borderRadius:th.radius, border:`1px solid ${th.border}`, padding:'12px 14px', marginBottom:16 }}>
+            <input value={sectorInput} onChange={e => setSectorInput(e.target.value)} placeholder="e.g. Cuisinière, Canche aux Merciers" style={{ background:'none', border:'none', outline:'none', fontSize:15, color:th.text, width:'100%', fontFamily:'DM Sans' }}/>
+          </div>
+
+          <Label th={th}>Rock type <span style={{ fontWeight:400, color:th.textMuted }}>(optional)</span></Label>
+          <div style={{ display:'flex', flexWrap:'wrap', gap:8, marginBottom:16 }}>
+            {ROCK_TYPES.map(r => (
+              <button key={r.id} onClick={() => setRockType(rockType===r.id ? null : r.id)} style={{ padding:'8px 14px', borderRadius:th.radiusSm, border:`1.5px solid ${rockType===r.id ? th.accent : th.border}`, background: rockType===r.id ? th.accentSoft : th.surface, color: rockType===r.id ? th.accentSoftText : th.text, fontSize:13, fontWeight:500, cursor:'pointer', fontFamily:'DM Sans' }}>
+                {r.label}
+              </button>
+            ))}
+          </div>
+
+          <Label th={th}>Conditions <span style={{ fontWeight:400, color:th.textMuted }}>(optional)</span></Label>
+          <div style={{ display:'flex', gap:8, marginBottom:16 }}>
+            {CONDITIONS.map(c => (
+              <button key={c.id} onClick={() => setConditions(conditions===c.id ? null : c.id)} style={{ flex:1, padding:'10px 4px', borderRadius:th.radius, border:`1.5px solid ${conditions===c.id ? th.accent : th.border}`, background: conditions===c.id ? th.accentSoft : th.surface, color: conditions===c.id ? th.accentSoftText : th.text, fontSize:13, fontWeight:600, cursor:'pointer', fontFamily:'DM Sans', textAlign:'center' }}>
+                {c.label}
+              </button>
+            ))}
+          </div>
+        </>
+      ) : (
+        <>
+          <Label th={th}>Gym</Label>
+          <div style={{ display:'flex', alignItems:'center', gap:10, background:th.surface, borderRadius:th.radius, border:`1px solid ${th.border}`, padding:'12px 14px', marginBottom:16 }}>
+            <Icon name="location" size={16} color={th.textSub}/>
+            <input value={gymInput} onChange={e => setGymInput(e.target.value)} placeholder="Gym name" style={{ background:'none', border:'none', outline:'none', fontSize:15, color:th.text, flex:1, fontFamily:'DM Sans' }}/>
+          </div>
+        </>
+      )}
 
       <Label th={th}>Session notes <span style={{ fontWeight:400, color:th.textMuted }}>(optional)</span></Label>
       <textarea value={sessionNotes} onChange={e => setSessionNotes(e.target.value)} placeholder="Goals, focus areas, how you're feeling…" style={{ width:'100%', background:th.surface, borderRadius:th.radius, border:`1px solid ${th.border}`, padding:'12px 14px', fontSize:14, color:th.text, fontFamily:'DM Sans', resize:'none', outline:'none', height:72, marginBottom:16, display:'block' }}/>
 
-      <button onClick={startSession} style={{ width:'100%', padding:'16px', borderRadius:th.radius, background:th.accent, color:th.accentText, fontSize:16, fontWeight:700, border:'none', cursor:'pointer', fontFamily:'DM Sans' }}>Start Session</button>
+      <button onClick={startSession} disabled={!canStart} style={{ width:'100%', padding:'16px', borderRadius:th.radius, background: canStart ? th.accent : th.borderStrong, color: canStart ? th.accentText : th.textMuted, fontSize:16, fontWeight:700, border:'none', cursor: canStart ? 'pointer' : 'not-allowed', fontFamily:'DM Sans' }}>
+        Start Session
+      </button>
 
       {sessions.length > 0 && (
         <div style={{ marginTop:30 }}>
           <Label th={th}>Last session</Label>
           <div style={{ background:th.card, border:`1px solid ${th.border}`, borderRadius:th.radius, padding:'14px 16px', boxShadow:th.shadow }}>
             <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start' }}>
-              <div><p style={{ fontSize:14, fontWeight:600, color:th.text }}>{sessions[0].gym}</p><p style={{ fontSize:12, color:th.textSub, marginTop:2 }}>{fmtDate(sessions[0].startTime)}</p></div>
+              <div>
+                <p style={{ fontSize:14, fontWeight:600, color:th.text }}>{sessions[0].gym}</p>
+                <p style={{ fontSize:12, color:th.textSub, marginTop:2 }}>{fmtDate(sessions[0].startTime)}{sessions[0].type === 'outdoor' ? ' · Outdoor' : ''}</p>
+              </div>
               <div style={{ textAlign:'right' }}><p style={{ fontSize:20, fontWeight:700, color:th.text }}>{sessions[0].climbs?.length||0}</p><p style={{ fontSize:11, color:th.textSub }}>problems</p></div>
             </div>
           </div>
@@ -166,7 +240,10 @@ function SessionScreen({ sessions, setSessions, currentSession, setCurrentSessio
               {elapsed > 0 && <span style={{ fontSize:12, color:th.textSub, marginLeft:2 }}>· {fmtElapsed(elapsed)}</span>}
             </div>
             <p style={{ fontSize:17, fontWeight:700, color:th.text }}>{currentSession.gym}</p>
-            <p style={{ fontSize:12, color:th.textSub }}>Started {fmtTime(currentSession.startTime)}</p>
+            <p style={{ fontSize:12, color:th.textSub }}>
+              {isOutdoor && currentSession.sector ? `${currentSession.sector} · ` : ''}
+              Started {fmtTime(currentSession.startTime)}
+            </p>
           </div>
           <div style={{ textAlign:'right' }}><p style={{ fontSize:26, fontWeight:800, color:th.text }}>{climbs.length}</p><p style={{ fontSize:11, color:th.textSub }}>{sends}/{climbs.length} sent</p></div>
         </div>
@@ -199,7 +276,7 @@ function SessionScreen({ sessions, setSessions, currentSession, setCurrentSessio
         <button onClick={endSession} style={{ width:'100%', padding:'13px', borderRadius:th.radius, border:`1px solid ${th.dangerBg}`, background:th.dangerBg, color:th.danger, fontSize:14, fontWeight:600, cursor:'pointer', fontFamily:'DM Sans' }}>End Session</button>
       </div>
 
-      {showAdd && <AddClimbModal tweaks={tweaks} onSave={addClimb} onClose={() => setShowAdd(false)}/>}
+      {showAdd && <AddClimbModal tweaks={tweaks} onSave={addClimb} onClose={() => setShowAdd(false)} outdoor={isOutdoor}/>}
       {showTimer && <RestTimer tweaks={tweaks} onClose={() => setShowTimer(false)}/>}
       {detail && <ClimbDetailModal climb={climbs.find(c=>c.id===detail.id)||detail} tweaks={tweaks} onClose={() => setDetail(null)} onUpdate={(ch) => updateClimb(detail.id, ch)} onDelete={() => deleteClimb(detail.id)}/>}
     </div>
@@ -236,7 +313,13 @@ function HistoryScreen({ sessions, setSessions, tweaks, onNavigate }) {
           return (
             <div key={s.id} style={{ background:th.card, border:`1px solid ${th.border}`, borderRadius:th.radius, overflow:'hidden', boxShadow:th.shadow }}>
               <button onClick={() => setExpanded(isOpen ? null : s.id)} style={{ width:'100%', padding:'14px 16px', background:'none', border:'none', cursor:'pointer', display:'flex', justifyContent:'space-between', alignItems:'center', textAlign:'left' }}>
-                <div><p style={{ fontSize:15, fontWeight:700, color:th.text, marginBottom:2 }}>{s.gym}</p><p style={{ fontSize:12, color:th.textSub }}>{fmtDate(s.startTime)}{duration ? ` · ${duration}min` : ''}</p></div>
+                <div>
+                  <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:2 }}>
+                    <p style={{ fontSize:15, fontWeight:700, color:th.text }}>{s.gym}</p>
+                    {s.type === 'outdoor' && <span style={{ fontSize:10, fontWeight:700, color:th.accent, background:th.accentSoft, padding:'2px 7px', borderRadius:th.radiusSm, letterSpacing:'0.05em' }}>OUTDOOR</span>}
+                  </div>
+                  <p style={{ fontSize:12, color:th.textSub }}>{fmtDate(s.startTime)}{duration ? ` · ${duration}min` : ''}</p>
+                </div>
                 <div style={{ display:'flex', alignItems:'center', gap:12 }}>
                   <div style={{ textAlign:'right' }}><p style={{ fontSize:18, fontWeight:700, color:th.text }}>{s.climbs?.length||0}</p><p style={{ fontSize:11, color:th.textSub }}>problems</p></div>
                   <Icon name={isOpen ? 'chevDown' : 'chevRight'} size={16} color={th.textSub}/>
@@ -251,6 +334,14 @@ function HistoryScreen({ sessions, setSessions, tweaks, onNavigate }) {
                       </div>
                     ))}
                   </div>
+                  {s.type === 'outdoor' && (s.sector || s.rockType || s.conditions) && (
+                    <div style={{ padding:'10px 14px', borderBottom:`1px solid ${th.border}`, display:'flex', gap:8, flexWrap:'wrap', alignItems:'center' }}>
+                      <Icon name="location" size={13} color={th.textSub}/>
+                      {s.sector && <span style={{ fontSize:12, color:th.textSub }}>{s.sector}</span>}
+                      {s.rockType && <span style={{ fontSize:11, color:th.textSub, background:th.surface, border:`1px solid ${th.border}`, borderRadius:4, padding:'1px 7px' }}>{ROCK_TYPES.find(r=>r.id===s.rockType)?.label}</span>}
+                      {s.conditions && <span style={{ fontSize:11, color:th.textSub, background:th.surface, border:`1px solid ${th.border}`, borderRadius:4, padding:'1px 7px' }}>{CONDITIONS.find(c=>c.id===s.conditions)?.label}</span>}
+                    </div>
+                  )}
                   {s.notes && (
                     <div style={{ padding:'10px 14px', borderBottom:`1px solid ${th.border}`, display:'flex', gap:8, alignItems:'flex-start' }}>
                       <Icon name="note" size={14} color={th.textSub}/>
