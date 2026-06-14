@@ -16,15 +16,90 @@ function Ring({ value, max, size=44, stroke=5, color, track, children }) {
   );
 }
 
+// Grade progression chart (inline SVG, requires ≥2 sessions with sends)
+function ProgressChart({ sessions, tweaks }) {
+  const th = THEMES[tweaks.theme];
+  const allClimbs = sessions.flatMap(s => s.climbs || []);
+  const hasVSends = allClimbs.some(c => isSend(c) && c.grade?.system === 'v');
+  const sys = hasVSends ? 'v' : 'font';
+  const grades = sys === 'v' ? V_GRADES : FONT_GRADES;
+
+  const points = [...sessions].reverse().map(s => {
+    let max = -1;
+    (s.climbs || []).filter(c => isSend(c) && c.grade?.system === sys)
+      .forEach(c => { const i = grades.indexOf(c.grade.grade); if (i > max) max = i; });
+    return max >= 0 ? { date: s.startTime, idx: max } : null;
+  }).filter(Boolean);
+
+  if (points.length < 2) return null;
+
+  const W = 300, H = 80, pL = 32, pB = 18, pT = 8, pR = 10;
+  const cW = W - pL - pR, cH = H - pT - pB;
+  const maxG = grades.length - 1;
+  const xStep = cW / Math.max(points.length - 1, 1);
+  const toX = i => pL + i * xStep;
+  const toY = p => pT + cH - (p.idx / maxG) * cH;
+
+  const linePath = points.map((p, i) => `${i === 0 ? 'M' : 'L'}${toX(i).toFixed(1)},${toY(p).toFixed(1)}`).join(' ');
+  const areaPath = `${linePath} L${toX(points.length - 1).toFixed(1)},${(pT + cH).toFixed(1)} L${pL},${(pT + cH).toFixed(1)} Z`;
+
+  const yTicks = [0, Math.floor(maxG * 0.5), maxG].map(idx => ({ label: grades[idx], y: toY({ idx }) }));
+
+  const fmtShort = ts => new Date(ts).toLocaleDateString('en-GB', { day:'numeric', month:'short' });
+
+  return (
+    <div style={{ background:th.card, border:`1px solid ${th.border}`, borderRadius:th.radius, padding:'16px', marginBottom:20, boxShadow:th.shadow }}>
+      <p style={{ fontSize:13, fontWeight:700, color:th.text, marginBottom:12 }}>
+        Grade Progression ({sys === 'v' ? 'V-Scale' : 'Fontainebleau'})
+      </p>
+      <svg viewBox={`0 0 ${W} ${H}`} style={{ width:'100%', height:'auto', display:'block' }}>
+        {yTicks.map((t, i) => (
+          <g key={i}>
+            <line x1={pL} y1={t.y} x2={W - pR} y2={t.y} stroke={th.border} strokeWidth="1"/>
+            <text x={pL - 5} y={t.y + 3.5} fontSize="7.5" fill={th.textSub} textAnchor="end" fontFamily="DM Mono, monospace">{t.label}</text>
+          </g>
+        ))}
+        <path d={areaPath} fill={th.accent} opacity="0.1"/>
+        <path d={linePath} fill="none" stroke={th.accent} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+        {points.map((p, i) => (
+          <circle key={i} cx={toX(i)} cy={toY(p)} r="3" fill={th.accent}/>
+        ))}
+        <text x={pL} y={H} fontSize="8" fill={th.textSub} fontFamily="DM Sans, sans-serif">{fmtShort(points[0].date)}</text>
+        <text x={W - pR} y={H} fontSize="8" fill={th.textSub} textAnchor="end" fontFamily="DM Sans, sans-serif">{fmtShort(points[points.length - 1].date)}</text>
+      </svg>
+    </div>
+  );
+}
+
 // ── SESSION ──────────────────────────────────────────────────────────────────
-function SessionScreen({ sessions, setSessions, currentSession, setCurrentSession, tweaks, goals }) {
+function SessionScreen({ sessions, setSessions, currentSession, setCurrentSession, tweaks, goals, onNavigate }) {
   const th = THEMES[tweaks.theme];
   const [showAdd, setShowAdd] = sState(false);
   const [showTimer, setShowTimer] = sState(false);
   const [detail, setDetail] = sState(null);
   const [gymInput, setGymInput] = sState(tweaks.gymName);
+  const [sessionNotes, setSessionNotes] = sState('');
+  const [elapsed, setElapsed] = sState(() =>
+    currentSession?.startTime ? Math.floor((Date.now() - currentSession.startTime) / 1000) : 0
+  );
 
-  const startSession = () => setCurrentSession({ id: uid(), gym: gymInput, startTime: Date.now(), climbs: [] });
+  sEffect(() => {
+    if (!currentSession) { setElapsed(0); return; }
+    const tick = () => setElapsed(Math.floor((Date.now() - currentSession.startTime) / 1000));
+    tick();
+    const id = setInterval(tick, 60000);
+    return () => clearInterval(id);
+  }, [currentSession?.startTime]);
+
+  const fmtElapsed = s => {
+    const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60);
+    return h > 0 ? `${h}h ${m}m` : `${m}m`;
+  };
+
+  const startSession = () => {
+    setCurrentSession({ id: uid(), gym: gymInput, notes: sessionNotes || undefined, startTime: Date.now(), climbs: [] });
+    setSessionNotes('');
+  };
   const endSession = () => { setSessions(prev => [{ ...currentSession, endTime: Date.now() }, ...prev]); setCurrentSession(null); };
   const addClimb = (climb) => { setCurrentSession(s => ({ ...s, climbs: [...(s.climbs||[]), climb] })); setShowAdd(false); setShowTimer(true); };
   const deleteClimb = (id) => setCurrentSession(s => ({ ...s, climbs: s.climbs.filter(c => c.id !== id) }));
@@ -36,13 +111,12 @@ function SessionScreen({ sessions, setSessions, currentSession, setCurrentSessio
 
   // ── No active session ──
   if (!currentSession) return (
-    <div className="screen-pad">
+    <div className="screen-pad scroll" style={{ flex:1 }}>
       <div style={{ marginBottom:24 }}>
         <h1 style={{ fontSize:30, fontWeight:700, color:th.text, lineHeight:1.05, letterSpacing:'-0.02em' }}>Ready to climb?</h1>
         <p style={{ fontSize:15, color:th.textSub, marginTop:6 }}>Start a session to track your boulders.</p>
       </div>
 
-      {/* Weekly goal */}
       {goals.weeklySessions > 0 && (
         <div style={{ display:'flex', alignItems:'center', gap:14, background:th.card, border:`1px solid ${th.border}`, borderRadius:th.radius, padding:'14px 16px', marginBottom:16, boxShadow:th.shadow }}>
           <Ring value={weeklyDone} max={goals.weeklySessions} size={48} color={weeklyDone>=goals.weeklySessions?th.success:th.accent} track={th.surface}>
@@ -60,6 +134,9 @@ function SessionScreen({ sessions, setSessions, currentSession, setCurrentSessio
         <Icon name="location" size={16} color={th.textSub}/>
         <input value={gymInput} onChange={e => setGymInput(e.target.value)} placeholder="Gym name" style={{ background:'none', border:'none', outline:'none', fontSize:15, color:th.text, flex:1, fontFamily:'DM Sans' }}/>
       </div>
+
+      <Label th={th}>Session notes <span style={{ fontWeight:400, color:th.textMuted }}>(optional)</span></Label>
+      <textarea value={sessionNotes} onChange={e => setSessionNotes(e.target.value)} placeholder="Goals, focus areas, how you're feeling…" style={{ width:'100%', background:th.surface, borderRadius:th.radius, border:`1px solid ${th.border}`, padding:'12px 14px', fontSize:14, color:th.text, fontFamily:'DM Sans', resize:'none', outline:'none', height:72, marginBottom:16, display:'block' }}/>
 
       <button onClick={startSession} style={{ width:'100%', padding:'16px', borderRadius:th.radius, background:th.accent, color:th.accentText, fontSize:16, fontWeight:700, border:'none', cursor:'pointer', fontFamily:'DM Sans' }}>Start Session</button>
 
@@ -86,6 +163,7 @@ function SessionScreen({ sessions, setSessions, currentSession, setCurrentSessio
             <div style={{ display:'flex', alignItems:'center', gap:6, marginBottom:3 }}>
               <div style={{ width:7, height:7, borderRadius:'50%', background:th.success, boxShadow:`0 0 0 3px ${th.successBg}` }}/>
               <span style={{ fontSize:12, fontWeight:600, color:th.success }}>Session active</span>
+              {elapsed > 0 && <span style={{ fontSize:12, color:th.textSub, marginLeft:2 }}>· {fmtElapsed(elapsed)}</span>}
             </div>
             <p style={{ fontSize:17, fontWeight:700, color:th.text }}>{currentSession.gym}</p>
             <p style={{ fontSize:12, color:th.textSub }}>Started {fmtTime(currentSession.startTime)}</p>
@@ -129,15 +207,21 @@ function SessionScreen({ sessions, setSessions, currentSession, setCurrentSessio
 }
 
 // ── HISTORY ──────────────────────────────────────────────────────────────────
-function HistoryScreen({ sessions, setSessions, tweaks }) {
+function HistoryScreen({ sessions, setSessions, tweaks, onNavigate }) {
   const th = THEMES[tweaks.theme];
   const [expanded, setExpanded] = sState(null);
   const [detail, setDetail] = sState(null);
 
   if (sessions.length === 0) return (
-    <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', height:'100%', padding:40, gap:12 }}>
+    <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', height:'100%', padding:40, gap:16 }}>
       <Icon name="history" size={40} color={th.textMuted}/>
-      <p style={{ fontSize:15, color:th.textMuted, textAlign:'center' }}>No sessions yet.<br/>Start climbing to build your history!</p>
+      <div style={{ textAlign:'center' }}>
+        <p style={{ fontSize:16, fontWeight:700, color:th.text }}>No sessions yet</p>
+        <p style={{ fontSize:14, color:th.textSub, marginTop:4 }}>Head to Session and log your first climb!</p>
+      </div>
+      <button onClick={() => onNavigate?.('session')} style={{ padding:'12px 24px', borderRadius:th.radius, background:th.accent, color:th.accentText, fontSize:14, fontWeight:700, border:'none', cursor:'pointer', fontFamily:'DM Sans' }}>
+        Start a session →
+      </button>
     </div>
   );
 
@@ -167,6 +251,12 @@ function HistoryScreen({ sessions, setSessions, tweaks }) {
                       </div>
                     ))}
                   </div>
+                  {s.notes && (
+                    <div style={{ padding:'10px 14px', borderBottom:`1px solid ${th.border}`, display:'flex', gap:8, alignItems:'flex-start' }}>
+                      <Icon name="note" size={14} color={th.textSub}/>
+                      <p style={{ fontSize:13, color:th.textSub, fontStyle:'italic', lineHeight:1.5, marginTop:1 }}>{s.notes}</p>
+                    </div>
+                  )}
                   <div style={{ padding:'12px 14px', display:'flex', flexDirection:'column', gap:8 }}>
                     {s.climbs?.map(c => <ClimbCard key={c.id} climb={c} th={th} onOpen={() => setDetail({ ...c, _sid:s.id })}/>)}
                   </div>
@@ -187,24 +277,62 @@ function HistoryScreen({ sessions, setSessions, tweaks }) {
 }
 
 // ── STATS ──────────────────────────────────────────────────────────────────────
-function StatsScreen({ sessions, tweaks }) {
+function StatsScreen({ sessions, tweaks, onNavigate }) {
   const th = THEMES[tweaks.theme];
   const d = computeDerived(sessions);
   const allClimbs = sessions.flatMap(s => s.climbs || []);
 
-  const vGradeCounts = {};
-  allClimbs.filter(c => c.grade?.system==='v').forEach(c => {
-    const g = c.grade.grade;
-    if (!vGradeCounts[g]) vGradeCounts[g] = { sent:0, attempt:0 };
-    if (isSend(c)) vGradeCounts[g].sent++; else vGradeCounts[g].attempt++;
-  });
-  const pyramid = V_GRADES.filter(g => vGradeCounts[g]);
-  const maxVal = Math.max(...pyramid.map(g => vGradeCounts[g].sent + vGradeCounts[g].attempt), 1);
+  const buildCounts = (system, grades) => {
+    const counts = {};
+    allClimbs.filter(c => c.grade?.system === system).forEach(c => {
+      const g = c.grade.grade;
+      if (!counts[g]) counts[g] = { sent:0, attempt:0 };
+      if (isSend(c)) counts[g].sent++; else counts[g].attempt++;
+    });
+    return { counts, pyramid: grades.filter(g => counts[g]) };
+  };
+
+  const { counts: vCounts, pyramid: vPyramid } = buildCounts('v', V_GRADES);
+  const { counts: fontCounts, pyramid: fontPyramid } = buildCounts('font', FONT_GRADES);
+  const vMax = Math.max(...vPyramid.map(g => vCounts[g].sent + vCounts[g].attempt), 1);
+  const fontMax = Math.max(...fontPyramid.map(g => fontCounts[g].sent + fontCounts[g].attempt), 1);
 
   if (d.totalClimbs === 0) return (
-    <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', height:'100%', padding:40, gap:12 }}>
+    <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', height:'100%', padding:40, gap:16 }}>
       <Icon name="stats" size={40} color={th.textMuted}/>
-      <p style={{ fontSize:15, color:th.textMuted, textAlign:'center' }}>No data yet.<br/>Log some climbs to see stats!</p>
+      <div style={{ textAlign:'center' }}>
+        <p style={{ fontSize:16, fontWeight:700, color:th.text }}>No data yet</p>
+        <p style={{ fontSize:14, color:th.textSub, marginTop:4 }}>Log some climbs to see your stats!</p>
+      </div>
+      <button onClick={() => onNavigate?.('session')} style={{ padding:'12px 24px', borderRadius:th.radius, background:th.accent, color:th.accentText, fontSize:14, fontWeight:700, border:'none', cursor:'pointer', fontFamily:'DM Sans' }}>
+        Start a session →
+      </button>
+    </div>
+  );
+
+  const Pyramid = ({ pyramid, counts, maxVal, title }) => (
+    <div style={{ background:th.card, border:`1px solid ${th.border}`, borderRadius:th.radius, padding:'16px', marginBottom:20, boxShadow:th.shadow }}>
+      <p style={{ fontSize:13, fontWeight:700, color:th.text, marginBottom:16 }}>{title}</p>
+      <div style={{ display:'flex', flexDirection:'column-reverse', gap:5 }}>
+        {pyramid.map(g => {
+          const dd = counts[g]; const total = dd.sent + dd.attempt;
+          return (
+            <div key={g} style={{ display:'flex', alignItems:'center', gap:10 }}>
+              <span style={{ fontFamily:"'DM Mono', monospace", fontSize:12, color:th.textSub, width:28, textAlign:'right' }}>{g}</span>
+              <div style={{ flex:1, height:22, background:th.surface, borderRadius:4, overflow:'hidden', position:'relative' }}>
+                <div style={{ position:'absolute', inset:0, width:`${(total/maxVal)*100}%`, background:th.accentSoft, display:'flex' }}>
+                  <div style={{ height:'100%', width:`${(dd.sent/total)*100}%`, background:th.accent }}/>
+                </div>
+              </div>
+              <span style={{ fontSize:12, color:th.textSub, width:20 }}>{total}</span>
+            </div>
+          );
+        })}
+      </div>
+      <div style={{ display:'flex', gap:16, marginTop:14, paddingTop:12, borderTop:`1px solid ${th.border}` }}>
+        <div style={{ display:'flex', alignItems:'center', gap:6 }}><div style={{ width:12, height:12, borderRadius:2, background:th.accent }}/><span style={{ fontSize:12, color:th.textSub }}>Sent</span></div>
+        <div style={{ display:'flex', alignItems:'center', gap:6 }}><div style={{ width:12, height:12, borderRadius:2, background:th.accentSoft }}/><span style={{ fontSize:12, color:th.textSub }}>Attempt</span></div>
+      </div>
     </div>
   );
 
@@ -231,31 +359,10 @@ function StatsScreen({ sessions, tweaks }) {
         </div>
       )}
 
-      {pyramid.length > 0 && (
-        <div style={{ background:th.card, border:`1px solid ${th.border}`, borderRadius:th.radius, padding:'16px', marginBottom:20, boxShadow:th.shadow }}>
-          <p style={{ fontSize:13, fontWeight:700, color:th.text, marginBottom:16 }}>Grade Pyramid (V-Scale)</p>
-          <div style={{ display:'flex', flexDirection:'column-reverse', gap:5 }}>
-            {pyramid.map(g => {
-              const dd = vGradeCounts[g]; const total = dd.sent + dd.attempt;
-              return (
-                <div key={g} style={{ display:'flex', alignItems:'center', gap:10 }}>
-                  <span style={{ fontFamily:"'DM Mono', monospace", fontSize:12, color:th.textSub, width:28, textAlign:'right' }}>{g}</span>
-                  <div style={{ flex:1, height:22, background:th.surface, borderRadius:4, overflow:'hidden', position:'relative' }}>
-                    <div style={{ position:'absolute', inset:0, width:`${(total/maxVal)*100}%`, background:th.accentSoft, display:'flex' }}>
-                      <div style={{ height:'100%', width:`${(dd.sent/total)*100}%`, background:th.accent }}/>
-                    </div>
-                  </div>
-                  <span style={{ fontSize:12, color:th.textSub, width:20 }}>{total}</span>
-                </div>
-              );
-            })}
-          </div>
-          <div style={{ display:'flex', gap:16, marginTop:14, paddingTop:12, borderTop:`1px solid ${th.border}` }}>
-            <div style={{ display:'flex', alignItems:'center', gap:6 }}><div style={{ width:12, height:12, borderRadius:2, background:th.accent }}/><span style={{ fontSize:12, color:th.textSub }}>Sent</span></div>
-            <div style={{ display:'flex', alignItems:'center', gap:6 }}><div style={{ width:12, height:12, borderRadius:2, background:th.accentSoft }}/><span style={{ fontSize:12, color:th.textSub }}>Attempt</span></div>
-          </div>
-        </div>
-      )}
+      <ProgressChart sessions={sessions} tweaks={tweaks}/>
+
+      {vPyramid.length > 0 && <Pyramid pyramid={vPyramid} counts={vCounts} maxVal={vMax} title="Grade Pyramid (V-Scale)"/>}
+      {fontPyramid.length > 0 && <Pyramid pyramid={fontPyramid} counts={fontCounts} maxVal={fontMax} title="Grade Pyramid (Fontainebleau)"/>}
 
       <div style={{ background:th.card, border:`1px solid ${th.border}`, borderRadius:th.radius, padding:'16px', boxShadow:th.shadow }}>
         <p style={{ fontSize:13, fontWeight:700, color:th.text, marginBottom:14 }}>Recent Sessions</p>

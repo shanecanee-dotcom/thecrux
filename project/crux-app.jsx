@@ -136,9 +136,9 @@ function App({ onSignOut, userId, initialDbData }) {
   const renderScreen = () => {
     if (showSettings) return <SettingsScreen tweaks={tweaks} setTweaks={setTweaks} sessions={sessions} setSessions={setSessions} setCurrentSession={setCurrentSession} onClose={() => setShowSettings(false)} onSignOut={onSignOut}/>;
     switch (tab) {
-      case 'session': return <SessionScreen sessions={sessions} setSessions={setSessions} currentSession={currentSession} setCurrentSession={setCurrentSession} tweaks={tweaks} goals={goals}/>;
-      case 'history': return <HistoryScreen sessions={sessions} setSessions={setSessions} tweaks={tweaks}/>;
-      case 'stats':   return <StatsScreen sessions={sessions} tweaks={tweaks}/>;
+      case 'session': return <SessionScreen sessions={sessions} setSessions={setSessions} currentSession={currentSession} setCurrentSession={setCurrentSession} tweaks={tweaks} goals={goals} onNavigate={setTab}/>;
+      case 'history': return <HistoryScreen sessions={sessions} setSessions={setSessions} tweaks={tweaks} onNavigate={setTab}/>;
+      case 'stats':   return <StatsScreen sessions={sessions} tweaks={tweaks} onNavigate={setTab}/>;
       case 'profile': return <ProfileScreen sessions={sessions} currentSession={currentSession} profile={profile} setProfile={setProfile} goals={goals} setGoals={setGoals} tweaks={tweaks} onOpenSettings={() => setShowSettings(true)}/>;
     }
   };
