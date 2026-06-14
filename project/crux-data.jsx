@@ -137,13 +137,15 @@ function computeDerived(sessions, active) {
   let weekStreak = 0;
   if (start !== null) { let w = start; while (weeks.has(w)) { weekStreak++; w--; } }
   const weeklyCount = all.filter(s => weekIndex(s.startTime) === cur).length;
+  const weeklyClimbs = all.filter(s => weekIndex(s.startTime) === cur).reduce((n, s) => n + (s.climbs?.length || 0), 0);
+  const outdoorSessions = sessions.filter(s => s.type === 'outdoor').length;
 
   return {
     totalClimbs: climbs.length, totalSends: sent.length, totalFlashes: flashes.length,
     totalAttempts: climbs.length - sent.length,
     sendRate: climbs.length ? Math.round(sent.length / climbs.length * 100) : 0,
     wallTypes, holdColors, maxV, maxFont, hasProject, weekStreak, weeklyCount,
-    totalSessions: sessions.length,
+    weeklyClimbs, outdoorSessions, totalSessions: sessions.length,
   };
 }
 
@@ -158,7 +160,10 @@ const ACHIEVEMENTS = [
   { id:'rainbow',     icon:'holds',    label:'Rainbow',         desc:'Log 6+ hold colours',              test:d=>d.holdColors.size>=6 },
   { id:'streak3',     icon:'flame',    label:'Consistent',      desc:'3-week climbing streak',           test:d=>d.weekStreak>=3 },
   { id:'v5',          icon:'medal',    label:'Strong',          desc:'Send V5 or harder',                test:d=>d.maxV>=V_GRADES.indexOf('V5') },
-  { id:'fifty',       icon:'history',  label:'Half Century',    desc:'Log 50 climbs',                    test:d=>d.totalClimbs>=50 },
+  { id:'fifty',         icon:'history',  label:'Half Century',    desc:'Log 50 climbs',                     test:d=>d.totalClimbs>=50 },
+  { id:'first_outdoor', icon:'tree',     label:'Into the Wild',   desc:'Complete your first outdoor session', test:d=>d.outdoorSessions>=1 },
+  { id:'sessions10',    icon:'calendar', label:'Regular Sender',  desc:'Complete 10 sessions',               test:d=>d.totalSessions>=10 },
+  { id:'sends25',       icon:'arrowUp',  label:'On a Roll',       desc:'Send 25 problems',                   test:d=>d.totalSends>=25 },
 ];
 const evalAchievements = (d) => ACHIEVEMENTS.map(a => ({ ...a, earned: a.test(d) }));
 

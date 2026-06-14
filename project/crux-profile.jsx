@@ -84,23 +84,35 @@ function ProfileScreen({ sessions, currentSession, profile, setProfile, goals, s
         ))}
       </div>
 
-      {/* Weekly goal */}
+      {/* Weekly goals */}
       <div style={{ background:th.card, border:`1px solid ${th.border}`, borderRadius:th.radius, padding:'16px', marginBottom:14, boxShadow:th.shadow }}>
-        <div style={{ display:'flex', alignItems:'center', gap:14 }}>
-          <Ring value={weeklyDone} max={goals.weeklySessions} size={52} color={weeklyDone>=goals.weeklySessions?th.success:th.accent} track={th.surface}>
-            <span style={{ fontSize:13, fontWeight:800, color:th.text }}>{weeklyDone}/{goals.weeklySessions}</span>
+        <p style={{ fontSize:13, fontWeight:700, color:th.text, marginBottom:14 }}>Weekly goals</p>
+        <div style={{ display:'flex', alignItems:'center', gap:12, marginBottom:14, paddingBottom:14, borderBottom:`1px solid ${th.border}` }}>
+          <Ring value={weeklyDone} max={goals.weeklySessions} size={46} color={weeklyDone>=goals.weeklySessions?th.success:th.accent} track={th.surface}>
+            <span style={{ fontSize:11, fontWeight:800, color:th.text }}>{weeklyDone}</span>
           </Ring>
           <div style={{ flex:1 }}>
-            <p style={{ fontSize:14, fontWeight:700, color:th.text }}>Weekly goal</p>
-            <p style={{ fontSize:12, color:th.textSub }}>{weeklyDone>=goals.weeklySessions ? 'Smashed it this week! 🎉' : `${goals.weeklySessions-weeklyDone} more session${goals.weeklySessions-weeklyDone!==1?'s':''} to go`}</p>
+            <p style={{ fontSize:13, fontWeight:700, color:weeklyDone>=goals.weeklySessions?th.success:th.text }}>Sessions</p>
+            <p style={{ fontSize:11, color:th.textSub }}>{weeklyDone}/{goals.weeklySessions} this week</p>
+          </div>
+          <div style={{ display:'flex', alignItems:'center', border:`1px solid ${th.border}`, borderRadius:th.radiusSm, overflow:'hidden' }}>
+            <button onClick={() => setGoals({ ...goals, weeklySessions: Math.max(1, goals.weeklySessions-1) })} style={{ background:th.surface, border:'none', padding:'5px 10px', cursor:'pointer', fontSize:16, color:th.text, fontWeight:700 }}>−</button>
+            <span style={{ padding:'5px 4px', fontSize:14, fontWeight:700, color:th.text, minWidth:24, textAlign:'center', fontFamily:"'DM Mono', monospace" }}>{goals.weeklySessions}</span>
+            <button onClick={() => setGoals({ ...goals, weeklySessions: Math.min(14, goals.weeklySessions+1) })} style={{ background:th.surface, border:'none', padding:'5px 10px', cursor:'pointer', fontSize:16, color:th.text, fontWeight:700 }}>+</button>
           </div>
         </div>
-        <div style={{ display:'flex', alignItems:'center', gap:10, marginTop:14, paddingTop:14, borderTop:`1px solid ${th.border}` }}>
-          <span style={{ fontSize:13, color:th.textSub, flex:1 }}>Sessions per week</span>
+        <div style={{ display:'flex', alignItems:'center', gap:12 }}>
+          <Ring value={d.weeklyClimbs} max={goals.weeklyClimbs||30} size={46} color={d.weeklyClimbs>=(goals.weeklyClimbs||30)?th.success:th.accent} track={th.surface}>
+            <span style={{ fontSize:11, fontWeight:800, color:th.text }}>{d.weeklyClimbs}</span>
+          </Ring>
+          <div style={{ flex:1 }}>
+            <p style={{ fontSize:13, fontWeight:700, color:d.weeklyClimbs>=(goals.weeklyClimbs||30)?th.success:th.text }}>Climbs</p>
+            <p style={{ fontSize:11, color:th.textSub }}>{d.weeklyClimbs}/{goals.weeklyClimbs||30} this week</p>
+          </div>
           <div style={{ display:'flex', alignItems:'center', border:`1px solid ${th.border}`, borderRadius:th.radiusSm, overflow:'hidden' }}>
-            <button onClick={() => setGoals({ ...goals, weeklySessions: Math.max(1, goals.weeklySessions-1) })} style={{ background:th.surface, border:'none', padding:'6px 12px', cursor:'pointer', fontSize:16, color:th.text, fontWeight:700 }}>−</button>
-            <span style={{ padding:'6px 6px', fontSize:15, fontWeight:700, color:th.text, minWidth:28, textAlign:'center', fontFamily:"'DM Mono', monospace" }}>{goals.weeklySessions}</span>
-            <button onClick={() => setGoals({ ...goals, weeklySessions: Math.min(14, goals.weeklySessions+1) })} style={{ background:th.surface, border:'none', padding:'6px 12px', cursor:'pointer', fontSize:16, color:th.text, fontWeight:700 }}>+</button>
+            <button onClick={() => setGoals({ ...goals, weeklyClimbs: Math.max(5, (goals.weeklyClimbs||30)-5) })} style={{ background:th.surface, border:'none', padding:'5px 10px', cursor:'pointer', fontSize:16, color:th.text, fontWeight:700 }}>−</button>
+            <span style={{ padding:'5px 4px', fontSize:14, fontWeight:700, color:th.text, minWidth:28, textAlign:'center', fontFamily:"'DM Mono', monospace" }}>{goals.weeklyClimbs||30}</span>
+            <button onClick={() => setGoals({ ...goals, weeklyClimbs: Math.min(200, (goals.weeklyClimbs||30)+5) })} style={{ background:th.surface, border:'none', padding:'5px 10px', cursor:'pointer', fontSize:16, color:th.text, fontWeight:700 }}>+</button>
           </div>
         </div>
       </div>

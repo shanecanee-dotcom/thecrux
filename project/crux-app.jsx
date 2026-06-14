@@ -51,6 +51,24 @@ function App({ onSignOut, userId, initialDbData }) {
   const [tab, setTab] = aState(() => loadLS('crux_tab', 'session'));
   const [showSettings, setShowSettings] = aState(false);
   const [showTweaks, setShowTweaks] = aState(false);
+  const [toastQueue, setToastQueue] = aState([]);
+  const earnedAchRef = aRef(null);
+
+  aEffect(() => {
+    const d = computeDerived(sessions, currentSession);
+    if (earnedAchRef.current === null) {
+      const earned = new Set(evalAchievements(d).filter(a => a.earned).map(a => a.id));
+      earnedAchRef.current = new Set([...new Set(loadLS('crux_earned_ach', [])), ...earned]);
+      saveLS('crux_earned_ach', [...earnedAchRef.current]);
+      return;
+    }
+    const newly = evalAchievements(d).filter(a => a.earned && !earnedAchRef.current.has(a.id));
+    if (newly.length > 0) {
+      newly.forEach(a => earnedAchRef.current.add(a.id));
+      saveLS('crux_earned_ach', [...earnedAchRef.current]);
+      setToastQueue(q => [...q, ...newly]);
+    }
+  }, [sessions, currentSession]); // eslint-disable-line
 
   const th = THEMES[tweaks.theme];
   const w = useViewport();
@@ -175,6 +193,7 @@ function App({ onSignOut, userId, initialDbData }) {
         </div>
       </main>
       {showTweaks && <TweaksPanel tweaks={tweaks} setTweaks={setTweaks} onClose={() => setShowTweaks(false)}/>}
+      {toastQueue[0] && <AchievementToast key={toastQueue[0].id} achievement={toastQueue[0]} tweaks={tweaks} onDismiss={() => setToastQueue(q => q.slice(1))}/>}
     </div>
   );
 
@@ -202,6 +221,7 @@ function App({ onSignOut, userId, initialDbData }) {
       )}
 
       {showTweaks && <TweaksPanel tweaks={tweaks} setTweaks={setTweaks} onClose={() => setShowTweaks(false)}/>}
+      {toastQueue[0] && <AchievementToast key={toastQueue[0].id} achievement={toastQueue[0]} tweaks={tweaks} onDismiss={() => setToastQueue(q => q.slice(1))}/>}
     </div>
   );
 }

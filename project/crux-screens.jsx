@@ -216,6 +216,9 @@ function SessionScreen({ sessions, setSessions, currentSession, setCurrentSessio
     const today = new Date().toLocaleDateString('en-GB', { weekday:'long', day:'numeric', month:'long' });
     const last = sessions[0];
     const goalHit = d.weeklyCount >= goals.weeklySessions;
+    const climbsGoal = goals.weeklyClimbs || 30;
+    const climbsGoalHit = d.weeklyClimbs >= climbsGoal;
+    const bothGoalsHit = goalHit && climbsGoalHit;
 
     return (
       <div style={{ display:'flex', flexDirection:'column', height:'100%' }}>
@@ -223,29 +226,34 @@ function SessionScreen({ sessions, setSessions, currentSession, setCurrentSessio
           <p style={{ fontSize:13, color:th.textSub, fontWeight:500, marginBottom:4 }}>{today}</p>
           <h1 style={{ fontSize:28, fontWeight:800, color:th.text, lineHeight:1.1, letterSpacing:'-0.02em', marginBottom:24 }}>{greeting}</h1>
 
-          {/* Weekly goal + streak */}
-          <div style={{ background:th.card, border:`1px solid ${goalHit ? th.success : th.border}`, borderRadius:th.radius, padding:'18px 20px', marginBottom:12, boxShadow:th.shadow }}>
-            <div style={{ display:'flex', alignItems:'center', gap:16 }}>
-              <Ring value={d.weeklyCount} max={goals.weeklySessions} size={58} stroke={6} color={goalHit ? th.success : th.accent} track={th.surface}>
-                <span style={{ fontSize:15, fontWeight:800, color:goalHit ? th.success : th.text }}>{d.weeklyCount}</span>
-              </Ring>
-              <div style={{ flex:1 }}>
-                <p style={{ fontSize:14, fontWeight:700, color:goalHit ? th.success : th.text }}>
-                  {goalHit ? 'Weekly goal complete!' : 'Weekly goal'}
-                </p>
-                <p style={{ fontSize:13, color:th.textSub, marginTop:2 }}>
-                  {d.weeklyCount} of {goals.weeklySessions} sessions this week
-                </p>
-              </div>
+          {/* Weekly goals */}
+          <div style={{ background:th.card, border:`1px solid ${bothGoalsHit ? th.success : th.border}`, borderRadius:th.radius, padding:'16px 20px 18px', marginBottom:12, boxShadow:th.shadow }}>
+            <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:14 }}>
+              <p style={{ fontSize:13, fontWeight:700, color:th.text }}>This week</p>
               {d.weekStreak > 0 && (
-                <div style={{ textAlign:'center', flexShrink:0 }}>
-                  <div style={{ display:'flex', alignItems:'center', gap:3, justifyContent:'center' }}>
-                    <Icon name="flame" size={15} color={th.warning}/>
-                    <span style={{ fontSize:20, fontWeight:800, color:th.warning }}>{d.weekStreak}</span>
-                  </div>
-                  <p style={{ fontSize:10, color:th.textSub, marginTop:1 }}>wk streak</p>
+                <div style={{ display:'flex', alignItems:'center', gap:5 }}>
+                  <Icon name="flame" size={14} color={th.warning}/>
+                  <span style={{ fontSize:14, fontWeight:800, color:th.warning }}>{d.weekStreak}</span>
+                  <span style={{ fontSize:11, color:th.textSub }}>wk streak</span>
                 </div>
               )}
+            </div>
+            <div style={{ display:'flex', justifyContent:'space-around', alignItems:'center' }}>
+              <div style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:5 }}>
+                <Ring value={d.weeklyCount} max={goals.weeklySessions} size={62} stroke={6} color={goalHit ? th.success : th.accent} track={th.surface}>
+                  <span style={{ fontSize:16, fontWeight:800, color:goalHit ? th.success : th.text }}>{d.weeklyCount}</span>
+                </Ring>
+                <p style={{ fontSize:13, fontWeight:700, color:goalHit ? th.success : th.text }}>{d.weeklyCount}/{goals.weeklySessions}</p>
+                <p style={{ fontSize:11, color:th.textSub }}>sessions</p>
+              </div>
+              <div style={{ width:1, alignSelf:'stretch', background:th.border, margin:'0 4px' }}/>
+              <div style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:5 }}>
+                <Ring value={d.weeklyClimbs} max={climbsGoal} size={62} stroke={6} color={climbsGoalHit ? th.success : th.accent} track={th.surface}>
+                  <span style={{ fontSize:16, fontWeight:800, color:climbsGoalHit ? th.success : th.text }}>{d.weeklyClimbs}</span>
+                </Ring>
+                <p style={{ fontSize:13, fontWeight:700, color:climbsGoalHit ? th.success : th.text }}>{d.weeklyClimbs}/{climbsGoal}</p>
+                <p style={{ fontSize:11, color:th.textSub }}>climbs</p>
+              </div>
             </div>
           </div>
 
@@ -540,4 +548,26 @@ function StatsScreen({ sessions, tweaks, onNavigate }) {
   );
 }
 
-Object.assign(window, { Ring, SessionScreen, HistoryScreen, StatsScreen });
+// ── ACHIEVEMENT TOAST ─────────────────────────────────────────────────────────
+function AchievementToast({ achievement, tweaks, onDismiss }) {
+  const th = THEMES[tweaks.theme];
+  sEffect(() => {
+    const t = setTimeout(onDismiss, 4000);
+    return () => clearTimeout(t);
+  }, []);
+  return (
+    <div style={{ position:'fixed', top:16, left:'50%', transform:'translateX(-50%)', zIndex:600, background:th.card, border:`1px solid ${th.border}`, borderRadius:th.radius, padding:'12px 14px', boxShadow:th.shadowMd, display:'flex', alignItems:'center', gap:12, width:'calc(100% - 40px)', maxWidth:400, animation:'toastIn 0.35s cubic-bezier(0.22,1,0.36,1)' }}>
+      <div style={{ width:36, height:36, borderRadius:'50%', background:th.accentSoft, display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
+        <Icon name="medal" size={18} color={th.accentSoftText}/>
+      </div>
+      <div style={{ flex:1, minWidth:0 }}>
+        <p style={{ fontSize:11, fontWeight:700, color:th.accent, textTransform:'uppercase', letterSpacing:'0.07em', marginBottom:2 }}>Achievement unlocked</p>
+        <p style={{ fontSize:13, fontWeight:700, color:th.text }}>{achievement.label}</p>
+        <p style={{ fontSize:11, color:th.textSub }}>{achievement.desc}</p>
+      </div>
+      <button onClick={onDismiss} style={{ background:'none', border:'none', cursor:'pointer', padding:4, flexShrink:0 }}><Icon name="x" size={14} color={th.textSub}/></button>
+    </div>
+  );
+}
+
+Object.assign(window, { Ring, AchievementToast, SessionScreen, HistoryScreen, StatsScreen });

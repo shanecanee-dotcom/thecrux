@@ -50,17 +50,18 @@
   .au-spin { animation: auSpin .7s linear infinite; }
   .au-card { animation: auIn .35s cubic-bezier(.22,1,.36,1); }
   @keyframes auIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+  @keyframes toastIn { from { opacity: 0; transform: translateX(-50%) translateY(-10px); } to { opacity: 1; transform: translateX(-50%) translateY(0); } }
 </style>
 </head>
 <body>
 <div id="root"></div>
-<script type="text/babel" src="project/crux-data.jsx?v=20260614"></script>
-<script type="text/babel" src="project/crux-supabase.jsx?v=20260614"></script>
-<script type="text/babel" src="project/crux-auth.jsx?v=20260614"></script>
-<script type="text/babel" src="project/crux-ui.jsx?v=20260614"></script>
-<script type="text/babel" src="project/crux-screens.jsx?v=20260614"></script>
-<script type="text/babel" src="project/crux-profile.jsx?v=20260614"></script>
-<script type="text/babel" src="project/crux-app.jsx?v=20260614"></script>
+<script type="text/babel" src="project/crux-data.jsx?v=20260615"></script>
+<script type="text/babel" src="project/crux-supabase.jsx?v=20260615"></script>
+<script type="text/babel" src="project/crux-auth.jsx?v=20260615"></script>
+<script type="text/babel" src="project/crux-ui.jsx?v=20260615"></script>
+<script type="text/babel" src="project/crux-screens.jsx?v=20260615"></script>
+<script type="text/babel" src="project/crux-profile.jsx?v=20260615"></script>
+<script type="text/babel" src="project/crux-app.jsx?v=20260615"></script>
 <script>
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => navigator.serviceWorker.register('/sw.js').catch(() => {}));
