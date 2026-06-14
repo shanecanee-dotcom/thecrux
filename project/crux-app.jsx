@@ -74,6 +74,39 @@ function App({ onSignOut, userId, initialDbData }) {
     }
   }, []); // eslint-disable-line
 
+  // Re-sync from DB when page becomes visible (mobile tab switch, app foreground).
+  // Uses initialDbIds to distinguish "deleted on another device" from "not yet uploaded".
+  aEffect(() => {
+    if (!userId || typeof DB === 'undefined') return;
+    const initialDbIds = new Set((db.sessions || []).map(s => s.id));
+
+    const sync = () => {
+      if (document.visibilityState !== 'visible') return;
+      DB.loadSessions(userId).then(dbSessions => {
+        if (!dbSessions) return;
+        const dbIds = new Set(dbSessions.map(s => s.id));
+        setSessionsRaw(prev => {
+          const localIds = new Set(prev.map(s => s.id));
+          const toAdd    = dbSessions.filter(s => !localIds.has(s.id));
+          const toRemove = new Set(prev.filter(s => initialDbIds.has(s.id) && !dbIds.has(s.id)).map(s => s.id));
+          // Re-try any local sessions that haven't reached DB yet
+          prev.filter(s => !dbIds.has(s.id) && !initialDbIds.has(s.id))
+            .forEach(s => DB.upsertSession(userId, s).catch(console.error));
+          toAdd.forEach(s => initialDbIds.add(s.id));
+          if (toAdd.length === 0 && toRemove.size === 0) return prev;
+          return [...prev.filter(s => !toRemove.has(s.id)), ...toAdd];
+        });
+      }).catch(console.error);
+    };
+
+    document.addEventListener('visibilitychange', sync);
+    window.addEventListener('focus', sync);
+    return () => {
+      document.removeEventListener('visibilitychange', sync);
+      window.removeEventListener('focus', sync);
+    };
+  }, [userId]); // eslint-disable-line
+
   // Debounced sync for profile, goals, tweaks, onboarded
   const profileTimerRef = aRef(null);
   aEffect(() => {
