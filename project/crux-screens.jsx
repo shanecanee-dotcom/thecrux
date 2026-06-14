@@ -486,6 +486,135 @@ function HistoryScreen({ sessions, setSessions, tweaks, onNavigate }) {
   );
 }
 
+// ── ACTIVITY HEATMAP ─────────────────────────────────────────────────────────
+function ActivityHeatmap({ sessions, tweaks }) {
+  const th = THEMES[tweaks.theme];
+  const WEEKS = 16;
+  const CELL = 13;
+  const GAP = 3;
+
+  const dayCounts = {};
+  sessions.forEach(s => {
+    if (!s.startTime) return;
+    const d = new Date(s.startTime);
+    const key = `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
+    dayCounts[key] = (dayCounts[key] || 0) + 1;
+  });
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const todayDow = (today.getDay() + 6) % 7;
+  const gridStart = new Date(today);
+  gridStart.setDate(today.getDate() - todayDow - (WEEKS - 1) * 7);
+
+  const weeks = Array.from({ length: WEEKS }, (_, w) =>
+    Array.from({ length: 7 }, (_, d) => {
+      const date = new Date(gridStart);
+      date.setDate(gridStart.getDate() + w * 7 + d);
+      const key = `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`;
+      return { date, count: date > today ? -1 : (dayCounts[key] || 0) };
+    })
+  );
+
+  const getColor = count => {
+    if (count < 0) return 'transparent';
+    if (count === 0) return th.border;
+    if (count === 1) return th.accent + '55';
+    if (count === 2) return th.accent + 'AA';
+    return th.accent;
+  };
+
+  const monthLabels = weeks.map((week, w) =>
+    w === 0 || week[0].date.getMonth() !== weeks[w - 1][0].date.getMonth()
+      ? week[0].date.toLocaleDateString('en-GB', { month: 'short' })
+      : ''
+  );
+
+  const DAY_LABELS = ['M', '', 'W', '', 'F', '', 'S'];
+
+  return (
+    <div style={{ background: th.card, border: `1px solid ${th.border}`, borderRadius: th.radius, padding: '16px', marginBottom: 20, boxShadow: th.shadow }}>
+      <p style={{ fontSize: 13, fontWeight: 700, color: th.text, marginBottom: 12 }}>Activity — Last 16 Weeks</p>
+      <div style={{ overflowX: 'auto' }}>
+        <div style={{ display: 'inline-flex', flexDirection: 'column', gap: 4 }}>
+          <div style={{ display: 'flex', gap: GAP, paddingLeft: 18 }}>
+            {weeks.map((_, w) => (
+              <div key={w} style={{ width: CELL, flexShrink: 0, fontSize: 9, color: th.textSub, fontFamily: "'DM Mono', monospace", lineHeight: 1 }}>
+                {monthLabels[w]}
+              </div>
+            ))}
+          </div>
+          <div style={{ display: 'flex' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: GAP, marginRight: 5, width: 13, flexShrink: 0 }}>
+              {DAY_LABELS.map((label, i) => (
+                <div key={i} style={{ height: CELL, display: 'flex', alignItems: 'center', fontSize: 8, color: th.textSub, fontFamily: "'DM Mono', monospace" }}>
+                  {label}
+                </div>
+              ))}
+            </div>
+            <div style={{ display: 'flex', gap: GAP }}>
+              {weeks.map((week, w) => (
+                <div key={w} style={{ display: 'flex', flexDirection: 'column', gap: GAP }}>
+                  {week.map((cell, d) => (
+                    <div key={d} style={{ width: CELL, height: CELL, borderRadius: 3, background: getColor(cell.count), flexShrink: 0 }}
+                      title={cell.count >= 0 ? `${cell.date.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}: ${cell.count} session${cell.count !== 1 ? 's' : ''}` : ''} />
+                  ))}
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginTop: 10, justifyContent: 'flex-end' }}>
+        <span style={{ fontSize: 10, color: th.textSub }}>Less</span>
+        {[0, 1, 2, 3].map(i => (
+          <div key={i} style={{ width: CELL, height: CELL, borderRadius: 3, background: getColor(i) }} />
+        ))}
+        <span style={{ fontSize: 10, color: th.textSub }}>More</span>
+      </div>
+    </div>
+  );
+}
+
+// ── PERSONAL RECORDS ──────────────────────────────────────────────────────────
+function PersonalRecords({ sessions, tweaks }) {
+  const th = THEMES[tweaks.theme];
+  const climbSessions = sessions.filter(s => s.type !== 'training' && (s.climbs?.length || 0) > 0);
+  if (climbSessions.length === 0) return null;
+
+  const countSends = s => (s.climbs || []).filter(isSend).length;
+  const d = computeDerived(sessions);
+  const topV = d.maxV >= 0 ? V_GRADES[d.maxV] : null;
+  const topFont = d.maxFont >= 0 ? FONT_GRADES[d.maxFont] : null;
+
+  const bestSends = [...climbSessions].sort((a, b) => countSends(b) - countSends(a))[0];
+  const mostProblems = [...climbSessions].sort((a, b) => (b.climbs?.length || 0) - (a.climbs?.length || 0))[0];
+
+  const records = [
+    topV         && { label: 'Top V Grade',    value: topV,                             sub: 'V-scale send' },
+    topFont      && { label: 'Top Font Grade', value: topFont,                          sub: 'Fontainebleau send' },
+    bestSends    && { label: 'Best Sends',     value: countSends(bestSends),            sub: fmtDate(bestSends.startTime) },
+    mostProblems && { label: 'Most Problems',  value: mostProblems.climbs?.length || 0, sub: fmtDate(mostProblems.startTime) },
+  ].filter(Boolean);
+
+  if (records.length === 0) return null;
+
+  return (
+    <div style={{ background: th.card, border: `1px solid ${th.border}`, borderRadius: th.radius, padding: '16px', marginBottom: 20, boxShadow: th.shadow }}>
+      <p style={{ fontSize: 13, fontWeight: 700, color: th.text, marginBottom: 14 }}>Personal Records</p>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+        {records.map((rec, i) => (
+          <div key={i} style={{ background: th.surface, borderRadius: th.radiusSm, padding: '12px 14px' }}>
+            <p style={{ fontSize: 10, fontWeight: 700, color: th.textMuted, letterSpacing: '0.07em', textTransform: 'uppercase', marginBottom: 4 }}>{rec.label}</p>
+            <p style={{ fontSize: 26, fontWeight: 800, color: th.accent, fontFamily: "'DM Mono', monospace", lineHeight: 1, marginBottom: 4 }}>{rec.value}</p>
+            <p style={{ fontSize: 11, color: th.textSub }}>{rec.sub}</p>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 // ── STATS ──────────────────────────────────────────────────────────────────────
 function StatsScreen({ sessions, tweaks, onNavigate }) {
   const th = THEMES[tweaks.theme];
@@ -569,6 +698,8 @@ function StatsScreen({ sessions, tweaks, onNavigate }) {
         </div>
       )}
 
+      <ActivityHeatmap sessions={sessions} tweaks={tweaks}/>
+      <PersonalRecords sessions={sessions} tweaks={tweaks}/>
       <ProgressChart sessions={sessions} tweaks={tweaks}/>
       {vPyramid.length > 0 && <Pyramid pyramid={vPyramid} counts={vCounts} maxVal={vMax} title="Grade Pyramid (V-Scale)"/>}
       {fontPyramid.length > 0 && <Pyramid pyramid={fontPyramid} counts={fontCounts} maxVal={fontMax} title="Grade Pyramid (Fontainebleau)"/>}
