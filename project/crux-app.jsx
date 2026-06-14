@@ -1,5 +1,5 @@
 // ── CRUX · app shell (responsive) ────────────────────────────────────────────
-const { useState: aState, useEffect: aEffect, useRef: aRef } = React;
+const { useState: aState, useEffect: aEffect, useRef: aRef, useCallback: aCallback } = React;
 
 const NAV = [
   { id:'session', icon:'mountain', label:'Session' },
@@ -17,7 +17,7 @@ function useViewport() {
 function App({ onSignOut, userId, initialDbData }) {
   const db = initialDbData || {};
   const [tweaks, setTweaks] = aState(() => ({ theme:'pure', defaultRestSeconds:240, gymName:'The Climbing Hangar', gradePref:'both', ...loadLS('crux_tweaks', {}), ...(db.profile?.tweaks || {}) }));
-  const [sessions, setSessions] = aState(() => {
+  const [sessions, setSessionsRaw] = aState(() => {
     const dbSessions = db.sessions || [];
     const lsSessions = loadLS('crux_sessions', []);
     if (dbSessions.length === 0) return lsSessions;
@@ -25,6 +25,21 @@ function App({ onSignOut, userId, initialDbData }) {
     const lsOnly = lsSessions.filter(s => !dbIds.has(s.id));
     return lsOnly.length > 0 ? [...dbSessions, ...lsOnly] : dbSessions;
   });
+
+  // Wrapped setter: fires DB upserts/deletes at the point of each state change
+  // so there's no async race between migration uploads and deletions.
+  const setSessions = aCallback(update => {
+    setSessionsRaw(prev => {
+      const next = typeof update === 'function' ? update(prev) : update;
+      if (userId && typeof DB !== 'undefined') {
+        const prevMap = new Map(prev.map(s => [s.id, JSON.stringify(s)]));
+        const nextIds = new Set(next.map(s => s.id));
+        next.forEach(s => { if (prevMap.get(s.id) !== JSON.stringify(s)) DB.upsertSession(userId, s).catch(console.error); });
+        prev.forEach(s => { if (!nextIds.has(s.id)) DB.deleteSession(userId, s.id).catch(console.error); });
+      }
+      return next;
+    });
+  }, [userId]);
   const [currentSession, setCurrentSession] = aState(() => loadLS('crux_session', null));
   const [profile, setProfile] = aState(() => db.profile?.profile_data || loadLS('crux_profile', { name:'', homeGym:'', avatar:null }));
   const [goals, setGoals] = aState(() => db.profile?.goals || loadLS('crux_goals', { weeklySessions:3 }));
@@ -47,33 +62,17 @@ function App({ onSignOut, userId, initialDbData }) {
   aEffect(() => { document.body.style.background = th.appBackdrop; }, [th]);
 
   // ── Supabase DB sync ────────────────────────────────────────────────────────
-  const prevSessionsRef = aRef(null);
 
-  // On mount: upload any localStorage sessions not yet in the DB (handles
-  // multi-device merges and first-time migrations).
+  // On mount: upload any sessions not yet in DB (new device merge / first login).
+  // The setSessions wrapper handles all future changes.
   aEffect(() => {
     if (!userId || typeof DB === 'undefined') return;
     const dbIds = new Set((db.sessions || []).map(s => s.id));
-    loadLS('crux_sessions', [])
-      .filter(s => !dbIds.has(s.id))
-      .forEach(s => DB.upsertSession(userId, s).catch(console.error));
+    sessions.filter(s => !dbIds.has(s.id)).forEach(s => DB.upsertSession(userId, s).catch(console.error));
     if (!db.profile) {
       DB.upsertProfile(userId, loadLS('crux_profile', {}), loadLS('crux_goals', {}), loadLS('crux_tweaks', {}), loadLS('crux_onboarded', false)).catch(console.error);
     }
-    prevSessionsRef.current = sessions;
   }, []); // eslint-disable-line
-
-  // Sync session adds, edits, and deletes
-  aEffect(() => {
-    if (!userId || typeof DB === 'undefined') return;
-    const prev = prevSessionsRef.current;
-    prevSessionsRef.current = sessions;
-    if (prev === null) return;
-    const prevMap = new Map((prev || []).map(s => [s.id, JSON.stringify(s)]));
-    const currIds = new Set(sessions.map(s => s.id));
-    sessions.forEach(s => { if (prevMap.get(s.id) !== JSON.stringify(s)) DB.upsertSession(userId, s).catch(console.error); });
-    (prev || []).forEach(s => { if (!currIds.has(s.id)) DB.deleteSession(userId, s.id).catch(console.error); });
-  }, [sessions]);
 
   // Debounced sync for profile, goals, tweaks, onboarded
   const profileTimerRef = aRef(null);
