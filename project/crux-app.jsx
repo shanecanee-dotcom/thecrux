@@ -17,7 +17,14 @@ function useViewport() {
 function App({ onSignOut, userId, initialDbData }) {
   const db = initialDbData || {};
   const [tweaks, setTweaks] = aState(() => ({ theme:'pure', defaultRestSeconds:240, gymName:'The Climbing Hangar', gradePref:'both', ...loadLS('crux_tweaks', {}), ...(db.profile?.tweaks || {}) }));
-  const [sessions, setSessions] = aState(() => (db.sessions?.length > 0 ? db.sessions : null) || loadLS('crux_sessions', []));
+  const [sessions, setSessions] = aState(() => {
+    const dbSessions = db.sessions || [];
+    const lsSessions = loadLS('crux_sessions', []);
+    if (dbSessions.length === 0) return lsSessions;
+    const dbIds = new Set(dbSessions.map(s => s.id));
+    const lsOnly = lsSessions.filter(s => !dbIds.has(s.id));
+    return lsOnly.length > 0 ? [...dbSessions, ...lsOnly] : dbSessions;
+  });
   const [currentSession, setCurrentSession] = aState(() => loadLS('crux_session', null));
   const [profile, setProfile] = aState(() => db.profile?.profile_data || loadLS('crux_profile', { name:'', homeGym:'', avatar:null }));
   const [goals, setGoals] = aState(() => db.profile?.goals || loadLS('crux_goals', { weeklySessions:3 }));
@@ -42,16 +49,18 @@ function App({ onSignOut, userId, initialDbData }) {
   // ── Supabase DB sync ────────────────────────────────────────────────────────
   const prevSessionsRef = aRef(null);
 
-  // One-time: migrate localStorage data to DB if DB was empty on first sign-in
+  // On mount: upload any localStorage sessions not yet in the DB (handles
+  // multi-device merges and first-time migrations).
   aEffect(() => {
     if (!userId || typeof DB === 'undefined') return;
-    if (Array.isArray(db.sessions) && db.sessions.length === 0) {
-      loadLS('crux_sessions', []).forEach(s => DB.upsertSession(userId, s).catch(console.error));
-    }
+    const dbIds = new Set((db.sessions || []).map(s => s.id));
+    loadLS('crux_sessions', [])
+      .filter(s => !dbIds.has(s.id))
+      .forEach(s => DB.upsertSession(userId, s).catch(console.error));
     if (!db.profile) {
       DB.upsertProfile(userId, loadLS('crux_profile', {}), loadLS('crux_goals', {}), loadLS('crux_tweaks', {}), loadLS('crux_onboarded', false)).catch(console.error);
     }
-    prevSessionsRef.current = sessions; // mark initial state as already in sync
+    prevSessionsRef.current = sessions;
   }, []); // eslint-disable-line
 
   // Sync session adds, edits, and deletes
