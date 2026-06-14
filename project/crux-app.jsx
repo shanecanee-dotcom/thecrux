@@ -1,5 +1,5 @@
 // ── CRUX · app shell (responsive) ────────────────────────────────────────────
-const { useState: aState, useEffect: aEffect } = React;
+const { useState: aState, useEffect: aEffect, useRef: aRef } = React;
 
 const NAV = [
   { id:'session', icon:'mountain', label:'Session' },
@@ -14,13 +14,14 @@ function useViewport() {
   return w;
 }
 
-function App({ onSignOut }) {
-  const [tweaks, setTweaks] = aState(() => ({ theme:'pure', defaultRestSeconds:240, gymName:'The Climbing Hangar', gradePref:'both', ...loadLS('crux_tweaks', {}) }));
-  const [sessions, setSessions] = aState(() => loadLS('crux_sessions', []));
+function App({ onSignOut, userId, initialDbData }) {
+  const db = initialDbData || {};
+  const [tweaks, setTweaks] = aState(() => ({ theme:'pure', defaultRestSeconds:240, gymName:'The Climbing Hangar', gradePref:'both', ...loadLS('crux_tweaks', {}), ...(db.profile?.tweaks || {}) }));
+  const [sessions, setSessions] = aState(() => (db.sessions?.length > 0 ? db.sessions : null) || loadLS('crux_sessions', []));
   const [currentSession, setCurrentSession] = aState(() => loadLS('crux_session', null));
-  const [profile, setProfile] = aState(() => loadLS('crux_profile', { name:'', homeGym:'', avatar:null }));
-  const [goals, setGoals] = aState(() => loadLS('crux_goals', { weeklySessions:3 }));
-  const [onboarded, setOnboarded] = aState(() => loadLS('crux_onboarded', false));
+  const [profile, setProfile] = aState(() => db.profile?.profile_data || loadLS('crux_profile', { name:'', homeGym:'', avatar:null }));
+  const [goals, setGoals] = aState(() => db.profile?.goals || loadLS('crux_goals', { weeklySessions:3 }));
+  const [onboarded, setOnboarded] = aState(() => db.profile?.onboarded ?? loadLS('crux_onboarded', false));
   const [tab, setTab] = aState(() => loadLS('crux_tab', 'session'));
   const [showSettings, setShowSettings] = aState(false);
   const [showTweaks, setShowTweaks] = aState(false);
@@ -37,6 +38,42 @@ function App({ onSignOut }) {
   aEffect(() => saveLS('crux_onboarded', onboarded), [onboarded]);
   aEffect(() => saveLS('crux_tab', tab), [tab]);
   aEffect(() => { document.body.style.background = th.appBackdrop; }, [th]);
+
+  // ── Supabase DB sync ────────────────────────────────────────────────────────
+  const prevSessionsRef = aRef(null);
+
+  // One-time: migrate localStorage data to DB if DB was empty on first sign-in
+  aEffect(() => {
+    if (!userId || typeof DB === 'undefined') return;
+    if (Array.isArray(db.sessions) && db.sessions.length === 0) {
+      loadLS('crux_sessions', []).forEach(s => DB.upsertSession(userId, s).catch(console.error));
+    }
+    if (!db.profile) {
+      DB.upsertProfile(userId, loadLS('crux_profile', {}), loadLS('crux_goals', {}), loadLS('crux_tweaks', {}), loadLS('crux_onboarded', false)).catch(console.error);
+    }
+    prevSessionsRef.current = sessions; // mark initial state as already in sync
+  }, []); // eslint-disable-line
+
+  // Sync session adds, edits, and deletes
+  aEffect(() => {
+    if (!userId || typeof DB === 'undefined') return;
+    const prev = prevSessionsRef.current;
+    prevSessionsRef.current = sessions;
+    if (prev === null) return;
+    const prevMap = new Map((prev || []).map(s => [s.id, JSON.stringify(s)]));
+    const currIds = new Set(sessions.map(s => s.id));
+    sessions.forEach(s => { if (prevMap.get(s.id) !== JSON.stringify(s)) DB.upsertSession(userId, s).catch(console.error); });
+    (prev || []).forEach(s => { if (!currIds.has(s.id)) DB.deleteSession(userId, s.id).catch(console.error); });
+  }, [sessions]);
+
+  // Debounced sync for profile, goals, tweaks, onboarded
+  const profileTimerRef = aRef(null);
+  aEffect(() => {
+    if (!userId || typeof DB === 'undefined') return;
+    clearTimeout(profileTimerRef.current);
+    profileTimerRef.current = setTimeout(() =>
+      DB.upsertProfile(userId, profile, goals, tweaks, onboarded).catch(console.error), 800);
+  }, [profile, goals, tweaks, onboarded]);
 
   // Tweaks toolbar integration
   aEffect(() => {
@@ -126,39 +163,70 @@ function App({ onSignOut }) {
 
 function AppRoot() {
   const [user, setUser] = aState(() => loadLS('crux_auth_user', null));
+  const [dbData, setDbData] = aState(null);
+  const [loading, setLoading] = aState(() => !!loadLS('crux_auth_user', null));
 
   aEffect(() => {
-    document.body.style.overflow = user ? 'hidden' : '';
-  }, [user]);
+    document.body.style.overflow = (user && !loading) ? 'hidden' : '';
+  }, [user, loading]);
 
-  // On mount, check for an active Supabase session (handles email confirmation
-  // redirects and token refresh after a browser restart).
+  // Load DB data whenever we have a confirmed user ID
   aEffect(() => {
-    if (typeof Auth === 'undefined') return;
-    if (loadLS('crux_auth_user', null)) return; // already have local session
+    if (!user?.id) return;
+    setLoading(true);
+    Promise.all([DB.loadProfile(user.id), DB.loadSessions(user.id)])
+      .then(([profile, sessions]) => setDbData({ profile, sessions }))
+      .catch(console.error)
+      .finally(() => setLoading(false));
+  }, [user?.id]);
+
+  // Resolve user ID from Supabase session — handles page reload, email
+  // confirmation redirects, and sign-ins that didn't pass an ID.
+  aEffect(() => {
+    if (user?.id) return;
+    if (typeof Auth === 'undefined') { setLoading(false); return; }
     Auth.getSession().then(session => {
-      if (session) {
-        const stored = { email: session.user?.email || '', authed: true };
-        saveLS('crux_auth_user', stored);
-        setUser(stored);
+      if (session?.user) {
+        const updated = { authed: true, email: session.user.email || '', id: session.user.id, ...(user || {}) };
+        saveLS('crux_auth_user', updated);
+        setUser(updated);
+      } else {
+        setLoading(false);
       }
-    }).catch(() => {});
-  }, []);
+    }).catch(() => setLoading(false));
+  }, [!!user]);
 
   const handleAuthed = (u) => {
-    const stored = u && u.email ? u : { authed: true };
+    const stored = { authed: true, ...(u?.email && { email: u.email }), ...(u?.id && { id: u.id }) };
     saveLS('crux_auth_user', stored);
     setUser(stored);
+    setLoading(true);
   };
 
   const handleSignOut = async () => {
     try { await Auth.signOut(); } catch(e) {}
     saveLS('crux_auth_user', null);
+    setDbData(null);
+    setLoading(false);
     setUser(null);
+    document.body.style.overflow = '';
   };
 
-  if (!user) return <AuthFlow onAuthed={handleAuthed}/>;
-  return <App onSignOut={handleSignOut}/>;
+  if (!user && !loading) return <AuthFlow onAuthed={handleAuthed}/>;
+
+  if (loading) {
+    const th = THEMES[loadLS('crux_tweaks', {})?.theme || 'pure'];
+    return (
+      <div style={{ minHeight:'100vh', background:th.bg, display:'flex', alignItems:'center', justifyContent:'center' }}>
+        <div style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:14 }}>
+          <div className="au-spin" style={{ width:28, height:28, border:`3px solid ${th.border}`, borderTopColor:th.accent, borderRadius:'50%' }}/>
+          <span style={{ fontSize:13, color:th.textSub, fontFamily:"'DM Sans', sans-serif" }}>Loading…</span>
+        </div>
+      </div>
+    );
+  }
+
+  return <App userId={user.id} initialDbData={dbData} onSignOut={handleSignOut}/>;
 }
 
 ReactDOM.createRoot(document.getElementById('root')).render(<AppRoot/>);

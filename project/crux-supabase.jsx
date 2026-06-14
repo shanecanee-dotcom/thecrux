@@ -113,4 +113,45 @@ const Auth = {
   },
 };
 
-Object.assign(window, { Auth, DEMO_MODE, SUPABASE_URL });
+// ── database API ─────────────────────────────────────────────────────────────
+const DB = {
+  async loadProfile(userId) {
+    if (DEMO_MODE) return null;
+    const { data, error } = await sb().from('profiles').select('*').eq('user_id', userId).maybeSingle();
+    if (error) { console.error('DB.loadProfile:', error); return null; }
+    return data;
+  },
+
+  async upsertProfile(userId, profileData, goals, tweaks, onboarded) {
+    if (DEMO_MODE) return;
+    const { error } = await sb().from('profiles').upsert(
+      { user_id: userId, profile_data: profileData, goals, tweaks, onboarded, updated_at: new Date().toISOString() },
+      { onConflict: 'user_id' }
+    );
+    if (error) console.error('DB.upsertProfile:', error);
+  },
+
+  async loadSessions(userId) {
+    if (DEMO_MODE) return null;
+    const { data, error } = await sb().from('sessions').select('id, data').eq('user_id', userId);
+    if (error) { console.error('DB.loadSessions:', error); return null; }
+    return (data || []).map(r => r.data);
+  },
+
+  async upsertSession(userId, session) {
+    if (DEMO_MODE) return;
+    const { error } = await sb().from('sessions').upsert(
+      { id: session.id, user_id: userId, data: session, updated_at: new Date().toISOString() },
+      { onConflict: 'id' }
+    );
+    if (error) console.error('DB.upsertSession:', error);
+  },
+
+  async deleteSession(userId, sessionId) {
+    if (DEMO_MODE) return;
+    const { error } = await sb().from('sessions').delete().eq('id', sessionId).eq('user_id', userId);
+    if (error) console.error('DB.deleteSession:', error);
+  },
+};
+
+Object.assign(window, { Auth, DB, DEMO_MODE, SUPABASE_URL });

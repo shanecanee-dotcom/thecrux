@@ -89,8 +89,8 @@ function AuthFlow({ onAuthed, startView='login' }) {
     return unsub;
   }, []);
 
-  const doLogin   = () => guard(async () => { await Auth.signIn(email, pw); go('done'); onAuthed && onAuthed({ email }); });
-  const doSignup  = () => guard(async () => { const r = await Auth.signUp(email, pw, name); r.needsConfirmation ? go('sent') : (go('done'), onAuthed && onAuthed({ email })); });
+  const doLogin   = () => guard(async () => { const r = await Auth.signIn(email, pw); go('done'); onAuthed && onAuthed({ email, id: r?.user?.id }); });
+  const doSignup  = () => guard(async () => { const r = await Auth.signUp(email, pw, name); r.needsConfirmation ? go('sent') : (go('done'), onAuthed && onAuthed({ email, id: r?.data?.user?.id })); });
   const doForgot  = () => guard(async () => { await Auth.sendPasswordReset(email); go('sent'); });
   const doReset   = () => guard(async () => { if (pw !== pw2) throw new Error('Passwords don’t match.'); await Auth.updatePassword(pw); go('login'); setPw(''); setPw2(''); });
   const oauth     = (p) => guard(() => Auth.signInWithProvider(p));
