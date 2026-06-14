@@ -16,7 +16,7 @@ function Ring({ value, max, size=44, stroke=5, color, track, children }) {
   );
 }
 
-// Grade progression chart (inline SVG, requires ≥2 sessions with sends)
+// Grade progression chart
 function ProgressChart({ sessions, tweaks }) {
   const th = THEMES[tweaks.theme];
   const allClimbs = sessions.flatMap(s => s.climbs || []);
@@ -42,9 +42,7 @@ function ProgressChart({ sessions, tweaks }) {
 
   const linePath = points.map((p, i) => `${i === 0 ? 'M' : 'L'}${toX(i).toFixed(1)},${toY(p).toFixed(1)}`).join(' ');
   const areaPath = `${linePath} L${toX(points.length - 1).toFixed(1)},${(pT + cH).toFixed(1)} L${pL},${(pT + cH).toFixed(1)} Z`;
-
   const yTicks = [0, Math.floor(maxG * 0.5), maxG].map(idx => ({ label: grades[idx], y: toY({ idx }) }));
-
   const fmtShort = ts => new Date(ts).toLocaleDateString('en-GB', { day:'numeric', month:'short' });
 
   return (
@@ -61,12 +59,111 @@ function ProgressChart({ sessions, tweaks }) {
         ))}
         <path d={areaPath} fill={th.accent} opacity="0.1"/>
         <path d={linePath} fill="none" stroke={th.accent} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-        {points.map((p, i) => (
-          <circle key={i} cx={toX(i)} cy={toY(p)} r="3" fill={th.accent}/>
-        ))}
+        {points.map((p, i) => <circle key={i} cx={toX(i)} cy={toY(p)} r="3" fill={th.accent}/>)}
         <text x={pL} y={H} fontSize="8" fill={th.textSub} fontFamily="DM Sans, sans-serif">{fmtShort(points[0].date)}</text>
         <text x={W - pR} y={H} fontSize="8" fill={th.textSub} textAnchor="end" fontFamily="DM Sans, sans-serif">{fmtShort(points[points.length - 1].date)}</text>
       </svg>
+    </div>
+  );
+}
+
+// ── START SESSION SHEET ───────────────────────────────────────────────────────
+function StartSessionSheet({ tweaks, onStart, onClose }) {
+  const th = THEMES[tweaks.theme];
+  const [sessionType, setSessionType] = sState('indoor');
+  const [gymInput, setGymInput] = sState(tweaks.gymName);
+  const [cragInput, setCragInput] = sState('');
+  const [sectorInput, setSectorInput] = sState('');
+  const [rockType, setRockType] = sState(null);
+  const [conditions, setConditions] = sState(null);
+  const [notes, setNotes] = sState('');
+
+  const canStart = sessionType === 'indoor' || cragInput.trim().length > 0;
+
+  const handleStart = () => {
+    if (!canStart) return;
+    onStart({
+      type: sessionType,
+      gym: sessionType === 'indoor' ? gymInput : cragInput.trim(),
+      ...(sessionType === 'outdoor' && {
+        sector: sectorInput.trim() || undefined,
+        rockType: rockType || undefined,
+        conditions: conditions || undefined,
+      }),
+      notes: notes.trim() || undefined,
+    });
+  };
+
+  return (
+    <div className="sheet-wrap" onClick={onClose}>
+      <div className="sheet scroll" style={{ background:th.bg }} onClick={e => e.stopPropagation()}>
+        <div style={{ display:'flex', justifyContent:'center', padding:'12px 0 0' }}>
+          <div style={{ width:36, height:4, background:th.borderStrong, borderRadius:2 }}/>
+        </div>
+        <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'14px 20px 4px' }}>
+          <span style={{ fontSize:17, fontWeight:700, color:th.text }}>New Session</span>
+          <button className="icon-btn" onClick={onClose} style={{ background:th.surface }}><Icon name="x" size={16} color={th.textSub}/></button>
+        </div>
+
+        <div style={{ padding:'16px 20px 0' }}>
+          <div style={{ display:'flex', gap:10, marginBottom:20 }}>
+            {[
+              { id:'indoor',  icon:'home', label:'Indoor',  sub:'Gym climbing' },
+              { id:'outdoor', icon:'tree', label:'Outdoor', sub:'Crag / boulderfield' },
+            ].map(t => (
+              <button key={t.id} onClick={() => setSessionType(t.id)} style={{ flex:1, padding:'14px 10px', borderRadius:th.radius, border:`2px solid ${sessionType===t.id ? th.accent : th.border}`, background: sessionType===t.id ? th.accentSoft : th.surface, cursor:'pointer', display:'flex', flexDirection:'column', alignItems:'center', gap:5 }}>
+                <Icon name={t.icon} size={22} color={sessionType===t.id ? th.accentSoftText : th.textSub}/>
+                <span style={{ fontSize:14, fontWeight:700, color:sessionType===t.id ? th.accentSoftText : th.text }}>{t.label}</span>
+                <span style={{ fontSize:11, color:sessionType===t.id ? th.accentSoftText : th.textSub }}>{t.sub}</span>
+              </button>
+            ))}
+          </div>
+
+          {sessionType === 'outdoor' ? (<>
+            <Label th={th}>Area / Crag</Label>
+            <div style={{ display:'flex', alignItems:'center', gap:10, background:th.surface, borderRadius:th.radius, border:`1px solid ${th.border}`, padding:'12px 14px', marginBottom:16 }}>
+              <Icon name="location" size={16} color={th.textSub}/>
+              <input value={cragInput} onChange={e => setCragInput(e.target.value)} placeholder="e.g. Fontainebleau, Stanage Edge" style={{ background:'none', border:'none', outline:'none', fontSize:15, color:th.text, flex:1, fontFamily:'DM Sans' }}/>
+            </div>
+
+            <Label th={th}>Sector <span style={{ fontWeight:400, color:th.textMuted }}>(optional)</span></Label>
+            <div style={{ background:th.surface, borderRadius:th.radius, border:`1px solid ${th.border}`, padding:'12px 14px', marginBottom:16 }}>
+              <input value={sectorInput} onChange={e => setSectorInput(e.target.value)} placeholder="e.g. Cuisinière, Canche aux Merciers" style={{ background:'none', border:'none', outline:'none', fontSize:15, color:th.text, width:'100%', fontFamily:'DM Sans' }}/>
+            </div>
+
+            <Label th={th}>Rock type <span style={{ fontWeight:400, color:th.textMuted }}>(optional)</span></Label>
+            <div style={{ display:'flex', flexWrap:'wrap', gap:8, marginBottom:16 }}>
+              {ROCK_TYPES.map(r => (
+                <button key={r.id} onClick={() => setRockType(rockType===r.id ? null : r.id)} style={{ padding:'8px 14px', borderRadius:th.radiusSm, border:`1.5px solid ${rockType===r.id ? th.accent : th.border}`, background: rockType===r.id ? th.accentSoft : th.surface, color: rockType===r.id ? th.accentSoftText : th.text, fontSize:13, fontWeight:500, cursor:'pointer', fontFamily:'DM Sans' }}>
+                  {r.label}
+                </button>
+              ))}
+            </div>
+
+            <Label th={th}>Conditions <span style={{ fontWeight:400, color:th.textMuted }}>(optional)</span></Label>
+            <div style={{ display:'flex', gap:8, marginBottom:16 }}>
+              {CONDITIONS.map(c => (
+                <button key={c.id} onClick={() => setConditions(conditions===c.id ? null : c.id)} style={{ flex:1, padding:'10px 4px', borderRadius:th.radius, border:`1.5px solid ${conditions===c.id ? th.accent : th.border}`, background: conditions===c.id ? th.accentSoft : th.surface, color: conditions===c.id ? th.accentSoftText : th.text, fontSize:13, fontWeight:600, cursor:'pointer', fontFamily:'DM Sans', textAlign:'center' }}>
+                  {c.label}
+                </button>
+              ))}
+            </div>
+          </>) : (<>
+            <Label th={th}>Gym</Label>
+            <div style={{ display:'flex', alignItems:'center', gap:10, background:th.surface, borderRadius:th.radius, border:`1px solid ${th.border}`, padding:'12px 14px', marginBottom:16 }}>
+              <Icon name="location" size={16} color={th.textSub}/>
+              <input value={gymInput} onChange={e => setGymInput(e.target.value)} placeholder="Gym name" style={{ background:'none', border:'none', outline:'none', fontSize:15, color:th.text, flex:1, fontFamily:'DM Sans' }}/>
+            </div>
+          </>)}
+
+          <Label th={th}>Notes <span style={{ fontWeight:400, color:th.textMuted }}>(optional)</span></Label>
+          <textarea value={notes} onChange={e => setNotes(e.target.value)} placeholder="Goals, focus areas, how you're feeling…" style={{ width:'100%', background:th.surface, borderRadius:th.radius, border:`1px solid ${th.border}`, padding:'12px 14px', fontSize:14, color:th.text, fontFamily:'DM Sans', resize:'none', outline:'none', height:72, marginBottom:20, display:'block' }}/>
+
+          <button onClick={handleStart} disabled={!canStart} style={{ width:'100%', padding:'16px', borderRadius:th.radius, border:'none', background: canStart ? th.accent : th.borderStrong, color: canStart ? th.accentText : th.textMuted, fontSize:16, fontWeight:700, cursor: canStart ? 'pointer' : 'not-allowed', fontFamily:'DM Sans', marginBottom:8 }}>
+            Start Session
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
@@ -76,14 +173,8 @@ function SessionScreen({ sessions, setSessions, currentSession, setCurrentSessio
   const th = THEMES[tweaks.theme];
   const [showAdd, setShowAdd] = sState(false);
   const [showTimer, setShowTimer] = sState(false);
+  const [showStart, setShowStart] = sState(false);
   const [detail, setDetail] = sState(null);
-  const [sessionType, setSessionType] = sState('indoor');
-  const [gymInput, setGymInput] = sState(tweaks.gymName);
-  const [cragInput, setCragInput] = sState('');
-  const [sectorInput, setSectorInput] = sState('');
-  const [rockType, setRockType] = sState(null);
-  const [conditions, setConditions] = sState(null);
-  const [sessionNotes, setSessionNotes] = sState('');
   const [elapsed, setElapsed] = sState(() =>
     currentSession?.startTime ? Math.floor((Date.now() - currentSession.startTime) / 1000) : 0
   );
@@ -101,31 +192,13 @@ function SessionScreen({ sessions, setSessions, currentSession, setCurrentSessio
     return h > 0 ? `${h}h ${m}m` : `${m}m`;
   };
 
-  const canStart = sessionType === 'indoor' || cragInput.trim().length > 0;
-
-  const startSession = () => {
-    setCurrentSession({
-      id: uid(),
-      type: sessionType,
-      gym: sessionType === 'indoor' ? gymInput : cragInput.trim(),
-      ...(sessionType === 'outdoor' && {
-        sector: sectorInput.trim() || undefined,
-        rockType: rockType || undefined,
-        conditions: conditions || undefined,
-      }),
-      notes: sessionNotes.trim() || undefined,
-      startTime: Date.now(),
-      climbs: [],
-    });
-    setSessionNotes('');
+  const handleStart = (config) => {
+    setCurrentSession({ id: uid(), startTime: Date.now(), climbs: [], ...config });
+    setShowStart(false);
   };
   const endSession = () => {
     setSessions(prev => [{ ...currentSession, endTime: Date.now() }, ...prev]);
     setCurrentSession(null);
-    setCragInput('');
-    setSectorInput('');
-    setRockType(null);
-    setConditions(null);
   };
   const addClimb = (climb) => { setCurrentSession(s => ({ ...s, climbs: [...(s.climbs||[]), climb] })); setShowAdd(false); setShowTimer(true); };
   const deleteClimb = (id) => setCurrentSession(s => ({ ...s, climbs: s.climbs.filter(c => c.id !== id) }));
@@ -133,107 +206,93 @@ function SessionScreen({ sessions, setSessions, currentSession, setCurrentSessio
 
   const climbs = currentSession?.climbs || [];
   const sends = climbs.filter(isSend).length;
-  const weeklyDone = sessions.filter(s => weekIndex(s.startTime) === weekIndex(Date.now())).length;
   const isOutdoor = currentSession?.type === 'outdoor';
 
-  // ── No active session ──
-  if (!currentSession) return (
-    <div className="screen-pad scroll" style={{ flex:1 }}>
-      <div style={{ marginBottom:20 }}>
-        <h1 style={{ fontSize:30, fontWeight:700, color:th.text, lineHeight:1.05, letterSpacing:'-0.02em' }}>Ready to climb?</h1>
-        <p style={{ fontSize:15, color:th.textSub, marginTop:6 }}>Start a session to track your problems.</p>
-      </div>
+  // ── Dashboard (no active session) ──
+  if (!currentSession) {
+    const d = computeDerived(sessions);
+    const hour = new Date().getHours();
+    const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
+    const today = new Date().toLocaleDateString('en-GB', { weekday:'long', day:'numeric', month:'long' });
+    const last = sessions[0];
+    const goalHit = d.weeklyCount >= goals.weeklySessions;
 
-      {goals.weeklySessions > 0 && (
-        <div style={{ display:'flex', alignItems:'center', gap:14, background:th.card, border:`1px solid ${th.border}`, borderRadius:th.radius, padding:'14px 16px', marginBottom:16, boxShadow:th.shadow }}>
-          <Ring value={weeklyDone} max={goals.weeklySessions} size={48} color={weeklyDone>=goals.weeklySessions?th.success:th.accent} track={th.surface}>
-            <Icon name={weeklyDone>=goals.weeklySessions?'check':'target'} size={18} color={weeklyDone>=goals.weeklySessions?th.success:th.accent}/>
-          </Ring>
-          <div style={{ flex:1 }}>
-            <p style={{ fontSize:14, fontWeight:700, color:th.text }}>Weekly goal</p>
-            <p style={{ fontSize:13, color:th.textSub }}>{weeklyDone} of {goals.weeklySessions} sessions this week</p>
-          </div>
-        </div>
-      )}
+    return (
+      <div style={{ display:'flex', flexDirection:'column', height:'100%' }}>
+        <div className="screen-pad scroll" style={{ flex:1 }}>
+          <p style={{ fontSize:13, color:th.textSub, fontWeight:500, marginBottom:4 }}>{today}</p>
+          <h1 style={{ fontSize:28, fontWeight:800, color:th.text, lineHeight:1.1, letterSpacing:'-0.02em', marginBottom:24 }}>{greeting}</h1>
 
-      {/* Session type */}
-      <div style={{ display:'flex', gap:10, marginBottom:20 }}>
-        {[
-          { id:'indoor',  icon:'home', label:'Indoor',  sub:'Gym climbing' },
-          { id:'outdoor', icon:'tree', label:'Outdoor', sub:'Crag / boulderfield' },
-        ].map(t => (
-          <button key={t.id} onClick={() => setSessionType(t.id)} style={{ flex:1, padding:'14px 10px', borderRadius:th.radius, border:`2px solid ${sessionType===t.id ? th.accent : th.border}`, background: sessionType===t.id ? th.accentSoft : th.surface, cursor:'pointer', display:'flex', flexDirection:'column', alignItems:'center', gap:5 }}>
-            <Icon name={t.icon} size={22} color={sessionType===t.id ? th.accentSoftText : th.textSub}/>
-            <span style={{ fontSize:14, fontWeight:700, color:sessionType===t.id ? th.accentSoftText : th.text }}>{t.label}</span>
-            <span style={{ fontSize:11, color:sessionType===t.id ? th.accentSoftText : th.textSub }}>{t.sub}</span>
-          </button>
-        ))}
-      </div>
-
-      {sessionType === 'outdoor' ? (
-        <>
-          <Label th={th}>Area / Crag</Label>
-          <div style={{ display:'flex', alignItems:'center', gap:10, background:th.surface, borderRadius:th.radius, border:`1px solid ${th.border}`, padding:'12px 14px', marginBottom:16 }}>
-            <Icon name="location" size={16} color={th.textSub}/>
-            <input value={cragInput} onChange={e => setCragInput(e.target.value)} placeholder="e.g. Fontainebleau, Stanage Edge" style={{ background:'none', border:'none', outline:'none', fontSize:15, color:th.text, flex:1, fontFamily:'DM Sans' }}/>
-          </div>
-
-          <Label th={th}>Sector <span style={{ fontWeight:400, color:th.textMuted }}>(optional)</span></Label>
-          <div style={{ background:th.surface, borderRadius:th.radius, border:`1px solid ${th.border}`, padding:'12px 14px', marginBottom:16 }}>
-            <input value={sectorInput} onChange={e => setSectorInput(e.target.value)} placeholder="e.g. Cuisinière, Canche aux Merciers" style={{ background:'none', border:'none', outline:'none', fontSize:15, color:th.text, width:'100%', fontFamily:'DM Sans' }}/>
-          </div>
-
-          <Label th={th}>Rock type <span style={{ fontWeight:400, color:th.textMuted }}>(optional)</span></Label>
-          <div style={{ display:'flex', flexWrap:'wrap', gap:8, marginBottom:16 }}>
-            {ROCK_TYPES.map(r => (
-              <button key={r.id} onClick={() => setRockType(rockType===r.id ? null : r.id)} style={{ padding:'8px 14px', borderRadius:th.radiusSm, border:`1.5px solid ${rockType===r.id ? th.accent : th.border}`, background: rockType===r.id ? th.accentSoft : th.surface, color: rockType===r.id ? th.accentSoftText : th.text, fontSize:13, fontWeight:500, cursor:'pointer', fontFamily:'DM Sans' }}>
-                {r.label}
-              </button>
-            ))}
-          </div>
-
-          <Label th={th}>Conditions <span style={{ fontWeight:400, color:th.textMuted }}>(optional)</span></Label>
-          <div style={{ display:'flex', gap:8, marginBottom:16 }}>
-            {CONDITIONS.map(c => (
-              <button key={c.id} onClick={() => setConditions(conditions===c.id ? null : c.id)} style={{ flex:1, padding:'10px 4px', borderRadius:th.radius, border:`1.5px solid ${conditions===c.id ? th.accent : th.border}`, background: conditions===c.id ? th.accentSoft : th.surface, color: conditions===c.id ? th.accentSoftText : th.text, fontSize:13, fontWeight:600, cursor:'pointer', fontFamily:'DM Sans', textAlign:'center' }}>
-                {c.label}
-              </button>
-            ))}
-          </div>
-        </>
-      ) : (
-        <>
-          <Label th={th}>Gym</Label>
-          <div style={{ display:'flex', alignItems:'center', gap:10, background:th.surface, borderRadius:th.radius, border:`1px solid ${th.border}`, padding:'12px 14px', marginBottom:16 }}>
-            <Icon name="location" size={16} color={th.textSub}/>
-            <input value={gymInput} onChange={e => setGymInput(e.target.value)} placeholder="Gym name" style={{ background:'none', border:'none', outline:'none', fontSize:15, color:th.text, flex:1, fontFamily:'DM Sans' }}/>
-          </div>
-        </>
-      )}
-
-      <Label th={th}>Session notes <span style={{ fontWeight:400, color:th.textMuted }}>(optional)</span></Label>
-      <textarea value={sessionNotes} onChange={e => setSessionNotes(e.target.value)} placeholder="Goals, focus areas, how you're feeling…" style={{ width:'100%', background:th.surface, borderRadius:th.radius, border:`1px solid ${th.border}`, padding:'12px 14px', fontSize:14, color:th.text, fontFamily:'DM Sans', resize:'none', outline:'none', height:72, marginBottom:16, display:'block' }}/>
-
-      <button onClick={startSession} disabled={!canStart} style={{ width:'100%', padding:'16px', borderRadius:th.radius, background: canStart ? th.accent : th.borderStrong, color: canStart ? th.accentText : th.textMuted, fontSize:16, fontWeight:700, border:'none', cursor: canStart ? 'pointer' : 'not-allowed', fontFamily:'DM Sans' }}>
-        Start Session
-      </button>
-
-      {sessions.length > 0 && (
-        <div style={{ marginTop:30 }}>
-          <Label th={th}>Last session</Label>
-          <div style={{ background:th.card, border:`1px solid ${th.border}`, borderRadius:th.radius, padding:'14px 16px', boxShadow:th.shadow }}>
-            <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start' }}>
-              <div>
-                <p style={{ fontSize:14, fontWeight:600, color:th.text }}>{sessions[0].gym}</p>
-                <p style={{ fontSize:12, color:th.textSub, marginTop:2 }}>{fmtDate(sessions[0].startTime)}{sessions[0].type === 'outdoor' ? ' · Outdoor' : ''}</p>
+          {/* Weekly goal + streak */}
+          <div style={{ background:th.card, border:`1px solid ${goalHit ? th.success : th.border}`, borderRadius:th.radius, padding:'18px 20px', marginBottom:12, boxShadow:th.shadow }}>
+            <div style={{ display:'flex', alignItems:'center', gap:16 }}>
+              <Ring value={d.weeklyCount} max={goals.weeklySessions} size={58} stroke={6} color={goalHit ? th.success : th.accent} track={th.surface}>
+                <span style={{ fontSize:15, fontWeight:800, color:goalHit ? th.success : th.text }}>{d.weeklyCount}</span>
+              </Ring>
+              <div style={{ flex:1 }}>
+                <p style={{ fontSize:14, fontWeight:700, color:goalHit ? th.success : th.text }}>
+                  {goalHit ? 'Weekly goal complete!' : 'Weekly goal'}
+                </p>
+                <p style={{ fontSize:13, color:th.textSub, marginTop:2 }}>
+                  {d.weeklyCount} of {goals.weeklySessions} sessions this week
+                </p>
               </div>
-              <div style={{ textAlign:'right' }}><p style={{ fontSize:20, fontWeight:700, color:th.text }}>{sessions[0].climbs?.length||0}</p><p style={{ fontSize:11, color:th.textSub }}>problems</p></div>
+              {d.weekStreak > 0 && (
+                <div style={{ textAlign:'center', flexShrink:0 }}>
+                  <div style={{ display:'flex', alignItems:'center', gap:3, justifyContent:'center' }}>
+                    <Icon name="flame" size={15} color={th.warning}/>
+                    <span style={{ fontSize:20, fontWeight:800, color:th.warning }}>{d.weekStreak}</span>
+                  </div>
+                  <p style={{ fontSize:10, color:th.textSub, marginTop:1 }}>wk streak</p>
+                </div>
+              )}
             </div>
           </div>
+
+          {/* Quick stats */}
+          <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:10, marginBottom:12 }}>
+            {[
+              { val: d.totalSessions, label:'sessions total' },
+              { val: d.totalClimbs,   label:'problems logged' },
+            ].map(s => (
+              <div key={s.label} style={{ background:th.card, border:`1px solid ${th.border}`, borderRadius:th.radius, padding:'14px 16px', boxShadow:th.shadow }}>
+                <p style={{ fontSize:26, fontWeight:800, color:th.text }}>{s.val}</p>
+                <p style={{ fontSize:12, color:th.textSub, marginTop:2 }}>{s.label}</p>
+              </div>
+            ))}
+          </div>
+
+          {/* Last session */}
+          {last && (
+            <div style={{ background:th.card, border:`1px solid ${th.border}`, borderRadius:th.radius, padding:'14px 16px', boxShadow:th.shadow }}>
+              <p style={{ fontSize:11, fontWeight:700, color:th.textSub, letterSpacing:'0.07em', textTransform:'uppercase', marginBottom:10 }}>Last session</p>
+              <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+                <div>
+                  <div style={{ display:'flex', alignItems:'center', gap:7, marginBottom:2 }}>
+                    <p style={{ fontSize:14, fontWeight:700, color:th.text }}>{last.gym}</p>
+                    {last.type === 'outdoor' && <span style={{ fontSize:10, fontWeight:700, color:th.accent, background:th.accentSoft, padding:'2px 6px', borderRadius:4 }}>OUT</span>}
+                  </div>
+                  <p style={{ fontSize:12, color:th.textSub }}>{fmtDate(last.startTime)}</p>
+                </div>
+                <div style={{ textAlign:'right' }}>
+                  <p style={{ fontSize:22, fontWeight:800, color:th.text }}>{last.climbs?.length||0}</p>
+                  <p style={{ fontSize:11, color:th.textSub }}>problems</p>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
-      )}
-    </div>
-  );
+
+        <div style={{ padding:'12px 20px 20px', borderTop:`1px solid ${th.border}`, background:th.bg, flexShrink:0 }}>
+          <button onClick={() => setShowStart(true)} style={{ width:'100%', padding:'18px', borderRadius:th.radius, background:th.accent, color:th.accentText, fontSize:17, fontWeight:700, border:'none', cursor:'pointer', fontFamily:'DM Sans', display:'flex', alignItems:'center', justifyContent:'center', gap:10 }}>
+            <Icon name="plus" size={20} color={th.accentText}/> Start Session
+          </button>
+        </div>
+
+        {showStart && <StartSessionSheet tweaks={tweaks} onStart={handleStart} onClose={() => setShowStart(false)}/>}
+      </div>
+    );
+  }
 
   // ── Active session ──
   return (
@@ -252,7 +311,10 @@ function SessionScreen({ sessions, setSessions, currentSession, setCurrentSessio
               Started {fmtTime(currentSession.startTime)}
             </p>
           </div>
-          <div style={{ textAlign:'right' }}><p style={{ fontSize:26, fontWeight:800, color:th.text }}>{climbs.length}</p><p style={{ fontSize:11, color:th.textSub }}>{sends}/{climbs.length} sent</p></div>
+          <div style={{ textAlign:'right' }}>
+            <p style={{ fontSize:26, fontWeight:800, color:th.text }}>{climbs.length}</p>
+            <p style={{ fontSize:11, color:th.textSub }}>{sends}/{climbs.length} sent</p>
+          </div>
         </div>
       </div>
 
@@ -458,7 +520,6 @@ function StatsScreen({ sessions, tweaks, onNavigate }) {
       )}
 
       <ProgressChart sessions={sessions} tweaks={tweaks}/>
-
       {vPyramid.length > 0 && <Pyramid pyramid={vPyramid} counts={vCounts} maxVal={vMax} title="Grade Pyramid (V-Scale)"/>}
       {fontPyramid.length > 0 && <Pyramid pyramid={fontPyramid} counts={fontCounts} maxVal={fontMax} title="Grade Pyramid (Fontainebleau)"/>}
 
