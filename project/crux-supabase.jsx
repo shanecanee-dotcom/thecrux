@@ -13,7 +13,7 @@
 // "service_role" key to the client.
 
 const SUPABASE_URL      = 'https://psbgsdxfjbrdhhuuquln.supabase.co';
-const SUPABASE_ANON_KEY = 'sb_publishable_lZEMlysDd8Mt0DTykjfiog_Sf5UUB-j';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBzYmdzZHhmamJyZGhodXVxdWxuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODEwMzU2NTQsImV4cCI6MjA5NjYxMTY1NH0.bQQtMWOupm4BWgQEqMYG7x1knszxlHgWJqWVGxHubjs';
 
 const DEMO_MODE = false;
 
