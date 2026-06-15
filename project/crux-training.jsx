@@ -221,12 +221,15 @@ function AddSetSheet({ tweaks, onSave, onClose }) {
 
 // ── WARM-UP PROGRAM ───────────────────────────────────────────────────────────
 const WARMUP_STEPS = [
-  { id:'wrist',    label:'Wrist Circles',       sub:'Slow circles each direction',       duration:60, sets:1, rest:0,  type:'mobility' },
-  { id:'shoulder', label:'Shoulder Rolls',       sub:'Backward then forward',             duration:30, sets:1, rest:0,  type:'mobility' },
-  { id:'flex',     label:'Forearm Stretch',      sub:'Press palm back — 30s each arm',   duration:60, sets:1, rest:0,  type:'stretch'  },
-  { id:'prayer',   label:'Prayer Stretch',       sub:'Palms together, elbows wide',      duration:30, sets:1, rest:0,  type:'stretch'  },
-  { id:'hang1',    label:'Dead Hang',            sub:'Full arm hang · relax shoulders',  duration:10, sets:2, rest:30, type:'hang'     },
-  { id:'hang2',    label:'Open-Hand Hang',       sub:'20mm edge · bodyweight only',      duration:7,  sets:2, rest:45, type:'hang'     },
+  { id:'wrist',    label:'Wrist Circles',       sub:'Slow circles each direction',          duration:60, sets:1, rest:0,  type:'mobility' },
+  { id:'shoulder', label:'Shoulder Rolls',       sub:'Backward then forward',               duration:30, sets:1, rest:0,  type:'mobility' },
+  { id:'hip_mob',  label:'Hip Circles',          sub:'Hands on hips, wide slow circles',    duration:30, sets:1, rest:0,  type:'mobility' },
+  { id:'flex',     label:'Forearm Stretch',      sub:'Press palm back — 30s each arm',      duration:60, sets:1, rest:0,  type:'stretch'  },
+  { id:'prayer',   label:'Prayer Stretch',       sub:'Palms together, elbows wide',         duration:30, sets:1, rest:0,  type:'stretch'  },
+  { id:'hipflex',  label:'Hip Flexor Stretch',   sub:'Lunge position — 30s each side',      duration:60, sets:1, rest:0,  type:'stretch'  },
+  { id:'calf',     label:'Calf Stretch',         sub:'Heel drop or wall push — 20s each',   duration:40, sets:1, rest:0,  type:'stretch'  },
+  { id:'hang1',    label:'Dead Hang',            sub:'Full arm hang · relax shoulders',     duration:10, sets:2, rest:30, type:'hang'     },
+  { id:'hang2',    label:'Open-Hand Hang',       sub:'20mm edge · bodyweight only',         duration:7,  sets:2, rest:45, type:'hang'     },
 ];
 
 function WarmUpOverlay({ tweaks, onClose }) {
@@ -300,7 +303,7 @@ function WarmUpOverlay({ tweaks, onClose }) {
 
         <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:16 }}>
           <div>
-            <p style={{ fontSize:10, fontWeight:700, color:th.textMuted, letterSpacing:'0.08em' }}>WARM-UP · ~5 MIN</p>
+            <p style={{ fontSize:10, fontWeight:700, color:th.textMuted, letterSpacing:'0.08em' }}>WARM-UP · ~7 MIN</p>
             <p style={{ fontSize:14, fontWeight:700, color:th.text }}>Step {step + 1} of {WARMUP_STEPS.length}</p>
           </div>
           <button className="icon-btn" onClick={onClose} style={{ background:th.surface }}><Icon name="x" size={16} color={th.textSub}/></button>
@@ -477,7 +480,7 @@ function TrainingScreen({ sessions, setSessions, currentSession, setCurrentSessi
           <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:10 }}>
             <div>
               <p style={{ fontSize:14, fontWeight:700, color:th.text }}>Climber Warm-Up</p>
-              <p style={{ fontSize:12, color:th.textSub, marginTop:1 }}>~5 min · mobility, stretches & dead hangs</p>
+              <p style={{ fontSize:12, color:th.textSub, marginTop:1 }}>~7 min · mobility, leg & arm stretches, dead hangs</p>
             </div>
             <div style={{ background:th.accentSoft, borderRadius:th.radiusSm, padding:'5px 7px', flexShrink:0 }}>
               <Icon name="timer" size={16} color={th.accentSoftText}/>
