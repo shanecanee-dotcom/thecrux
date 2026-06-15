@@ -236,6 +236,7 @@ function WarmUpOverlay({ tweaks, onClose }) {
   const th = THEMES[tweaks.theme];
   const [step, setStep] = tState(0);
   const [timer, setTimer] = tState({ phase:'preview', timeLeft:0, set:1 });
+  const [countdown, setCountdown] = tState(null);
 
   const cur = WARMUP_STEPS[step];
   const isLast = step === WARMUP_STEPS.length - 1;
@@ -261,6 +262,18 @@ function WarmUpOverlay({ tweaks, onClose }) {
     return () => clearInterval(id);
   }, [timer.phase, step]);
 
+  // 3-second auto-advance countdown when a step finishes
+  tEffect(() => {
+    if (timer.phase !== 'done') { setCountdown(null); return; }
+    setCountdown(3);
+    const id = setInterval(() => setCountdown(p => (p > 1 ? p - 1 : 0)), 1000);
+    return () => clearInterval(id);
+  }, [timer.phase, step]);
+
+  tEffect(() => {
+    if (countdown === 0 && timer.phase === 'done') advance();
+  }, [countdown, timer.phase]);
+
   const startStep = () => setTimer({ phase:'working', timeLeft:cur.duration, set:1 });
 
   const skipCurrent = () => setTimer(prev => {
@@ -275,6 +288,7 @@ function WarmUpOverlay({ tweaks, onClose }) {
   });
 
   const advance = () => {
+    setCountdown(null);
     if (isLast) { onClose(); return; }
     setStep(s => s + 1);
     setTimer({ phase:'preview', timeLeft:0, set:1 });
@@ -356,9 +370,14 @@ function WarmUpOverlay({ tweaks, onClose }) {
           </button>
         )}
         {isDone && (
-          <button onClick={advance} style={{ width:'100%', padding:'16px', borderRadius:th.radius, background:isLast ? th.success : th.accent, color:isLast ? '#fff' : th.accentText, fontSize:16, fontWeight:700, border:'none', cursor:'pointer', fontFamily:'DM Sans' }}>
-            {isLast ? 'Warm-Up Complete →' : 'Next Step →'}
-          </button>
+          <div>
+            <p style={{ textAlign:'center', fontSize:13, color:th.textSub, marginBottom:10 }}>
+              {isLast ? 'All done — great work!' : `Next step in ${countdown}…`}
+            </p>
+            <button onClick={advance} style={{ width:'100%', padding:'16px', borderRadius:th.radius, background:isLast ? th.success : th.accent, color:isLast ? '#fff' : th.accentText, fontSize:16, fontWeight:700, border:'none', cursor:'pointer', fontFamily:'DM Sans' }}>
+              {isLast ? 'Warm-Up Complete →' : 'Next Step →'}
+            </button>
+          </div>
         )}
         {(isWorking || isResting) && (
           <button onClick={skipCurrent} style={{ width:'100%', padding:'14px', borderRadius:th.radius, background:th.surface, border:`1px solid ${th.border}`, color:th.textSub, fontSize:14, fontWeight:600, cursor:'pointer', fontFamily:'DM Sans' }}>
