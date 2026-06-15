@@ -237,12 +237,14 @@ function WarmUpOverlay({ tweaks, onClose }) {
   const [step, setStep] = tState(0);
   const [timer, setTimer] = tState({ phase:'preview', timeLeft:0, set:1 });
   const [countdown, setCountdown] = tState(null);
+  const [paused, setPaused] = tState(false);
 
   const cur = WARMUP_STEPS[step];
   const isLast = step === WARMUP_STEPS.length - 1;
 
   tEffect(() => {
     if (timer.phase !== 'working' && timer.phase !== 'resting') return;
+    if (paused) return;
     const id = setInterval(() => {
       setTimer(prev => {
         if (prev.timeLeft > 1) return { ...prev, timeLeft: prev.timeLeft - 1 };
@@ -260,21 +262,26 @@ function WarmUpOverlay({ tweaks, onClose }) {
       });
     }, 1000);
     return () => clearInterval(id);
-  }, [timer.phase, step]);
+  }, [timer.phase, step, paused]);
 
-  // 3-second auto-advance countdown when a step finishes
+  // Set countdown to 3 when a step completes
   tEffect(() => {
     if (timer.phase !== 'done') { setCountdown(null); return; }
     setCountdown(3);
-    const id = setInterval(() => setCountdown(p => (p > 1 ? p - 1 : 0)), 1000);
-    return () => clearInterval(id);
   }, [timer.phase, step]);
+
+  // Tick countdown via setTimeout so pausing stops it cleanly
+  tEffect(() => {
+    if (timer.phase !== 'done' || paused || !countdown || countdown <= 0) return;
+    const id = setTimeout(() => setCountdown(p => (p > 1 ? p - 1 : 0)), 1000);
+    return () => clearTimeout(id);
+  }, [timer.phase, paused, countdown]);
 
   tEffect(() => {
     if (countdown === 0 && timer.phase === 'done') advance();
   }, [countdown, timer.phase]);
 
-  const startStep = () => setTimer({ phase:'working', timeLeft:cur.duration, set:1 });
+  const startStep = () => { setPaused(false); setTimer({ phase:'working', timeLeft:cur.duration, set:1 }); };
 
   const skipCurrent = () => setTimer(prev => {
     if (prev.phase === 'working') {
@@ -289,9 +296,11 @@ function WarmUpOverlay({ tweaks, onClose }) {
 
   const advance = () => {
     setCountdown(null);
+    setPaused(false);
     if (isLast) { onClose(); return; }
-    setStep(s => s + 1);
-    setTimer({ phase:'preview', timeLeft:0, set:1 });
+    const nextIdx = step + 1;
+    setStep(nextIdx);
+    setTimer({ phase:'working', timeLeft:WARMUP_STEPS[nextIdx].duration, set:1 });
   };
 
   const { phase, timeLeft, set } = timer;
@@ -304,7 +313,7 @@ function WarmUpOverlay({ tweaks, onClose }) {
   const TYPE_LABEL = { mobility:'MOBILITY', stretch:'STRETCH', hang:'HANG' };
   const typeColor  = TYPE_COLOR[cur.type] || th.accent;
 
-  const ringColor = isDone || isResting ? th.success : isPreview ? th.border : typeColor;
+  const ringColor = isDone || isResting ? th.success : (isPreview || paused) ? th.border : typeColor;
   const ringMax   = isResting ? cur.rest : cur.duration;
   const ringVal   = isDone ? ringMax : isPreview ? 0 : timeLeft;
 
@@ -347,11 +356,11 @@ function WarmUpOverlay({ tweaks, onClose }) {
                 <p style={{ fontSize:44, color:th.success }}>✓</p>
               ) : (
                 <>
-                  <p style={{ fontSize:52, fontWeight:800, color:isPreview ? th.textMuted : ringColor, fontFamily:"'DM Mono', monospace", lineHeight:1 }}>
+                  <p style={{ fontSize:52, fontWeight:800, color:(isPreview || paused) ? th.textMuted : ringColor, fontFamily:"'DM Mono', monospace", lineHeight:1 }}>
                     {isPreview ? cur.duration : timeLeft}
                   </p>
-                  <p style={{ fontSize:10, fontWeight:700, letterSpacing:'0.12em', color:isPreview ? th.textMuted : ringColor, marginTop:4 }}>
-                    {isPreview ? 'sec' : isResting ? 'REST' : 'GO'}
+                  <p style={{ fontSize:10, fontWeight:700, letterSpacing:'0.12em', color:(isPreview || paused) ? th.textMuted : ringColor, marginTop:4 }}>
+                    {isPreview ? 'sec' : paused ? 'PAUSED' : isResting ? 'REST' : 'GO'}
                   </p>
                 </>
               )}
@@ -380,9 +389,14 @@ function WarmUpOverlay({ tweaks, onClose }) {
           </div>
         )}
         {(isWorking || isResting) && (
-          <button onClick={skipCurrent} style={{ width:'100%', padding:'14px', borderRadius:th.radius, background:th.surface, border:`1px solid ${th.border}`, color:th.textSub, fontSize:14, fontWeight:600, cursor:'pointer', fontFamily:'DM Sans' }}>
-            {skipLabel}
-          </button>
+          <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
+            <button onClick={() => setPaused(p => !p)} style={{ width:'100%', padding:'15px', borderRadius:th.radius, border:`1px solid ${th.border}`, background:th.surface, color:th.text, fontSize:14, fontWeight:700, cursor:'pointer', fontFamily:'DM Sans', display:'flex', alignItems:'center', justifyContent:'center', gap:8 }}>
+              <Icon name={paused ? 'play' : 'pause'} size={16} color={th.text}/>{paused ? 'Resume' : 'Pause'}
+            </button>
+            <button onClick={skipCurrent} style={{ width:'100%', padding:'11px', borderRadius:th.radius, background:'none', border:'none', color:th.textSub, fontSize:13, fontWeight:600, cursor:'pointer', fontFamily:'DM Sans' }}>
+              {skipLabel}
+            </button>
+          </div>
         )}
       </div>
     </div>

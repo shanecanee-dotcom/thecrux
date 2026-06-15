@@ -1,4 +1,4 @@
-const CACHE = 'crux-v20260620';
+const CACHE = 'crux-v20260621';
 
 self.addEventListener('install', () => self.skipWaiting());
 
