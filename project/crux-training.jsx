@@ -219,11 +219,160 @@ function AddSetSheet({ tweaks, onSave, onClose }) {
   </>);
 }
 
+// ── WARM-UP PROGRAM ───────────────────────────────────────────────────────────
+const WARMUP_STEPS = [
+  { id:'wrist',    label:'Wrist Circles',       sub:'Slow circles each direction',       duration:60, sets:1, rest:0,  type:'mobility' },
+  { id:'shoulder', label:'Shoulder Rolls',       sub:'Backward then forward',             duration:30, sets:1, rest:0,  type:'mobility' },
+  { id:'flex',     label:'Forearm Stretch',      sub:'Press palm back — 30s each arm',   duration:60, sets:1, rest:0,  type:'stretch'  },
+  { id:'prayer',   label:'Prayer Stretch',       sub:'Palms together, elbows wide',      duration:30, sets:1, rest:0,  type:'stretch'  },
+  { id:'hang1',    label:'Dead Hang',            sub:'Full arm hang · relax shoulders',  duration:10, sets:2, rest:30, type:'hang'     },
+  { id:'hang2',    label:'Open-Hand Hang',       sub:'20mm edge · bodyweight only',      duration:7,  sets:2, rest:45, type:'hang'     },
+];
+
+function WarmUpOverlay({ tweaks, onClose }) {
+  const th = THEMES[tweaks.theme];
+  const [step, setStep] = tState(0);
+  const [timer, setTimer] = tState({ phase:'preview', timeLeft:0, set:1 });
+
+  const cur = WARMUP_STEPS[step];
+  const isLast = step === WARMUP_STEPS.length - 1;
+
+  tEffect(() => {
+    if (timer.phase !== 'working' && timer.phase !== 'resting') return;
+    const id = setInterval(() => {
+      setTimer(prev => {
+        if (prev.timeLeft > 1) return { ...prev, timeLeft: prev.timeLeft - 1 };
+        if (prev.phase === 'working') {
+          navigator.vibrate?.([200, 100, 200]);
+          if (prev.set < cur.sets && cur.rest > 0) return { phase:'resting', timeLeft:cur.rest, set:prev.set };
+          if (prev.set < cur.sets) return { phase:'working', timeLeft:cur.duration, set:prev.set + 1 };
+          return { ...prev, phase:'done', timeLeft:0 };
+        }
+        if (prev.phase === 'resting') {
+          navigator.vibrate?.([100]);
+          return { phase:'working', timeLeft:cur.duration, set:prev.set + 1 };
+        }
+        return prev;
+      });
+    }, 1000);
+    return () => clearInterval(id);
+  }, [timer.phase, step]);
+
+  const startStep = () => setTimer({ phase:'working', timeLeft:cur.duration, set:1 });
+
+  const skipCurrent = () => setTimer(prev => {
+    if (prev.phase === 'working') {
+      if (prev.set < cur.sets) return cur.rest > 0
+        ? { phase:'resting', timeLeft:cur.rest, set:prev.set }
+        : { phase:'working', timeLeft:cur.duration, set:prev.set + 1 };
+      return { ...prev, phase:'done', timeLeft:0 };
+    }
+    if (prev.phase === 'resting') return { phase:'working', timeLeft:cur.duration, set:prev.set + 1 };
+    return prev;
+  });
+
+  const advance = () => {
+    if (isLast) { onClose(); return; }
+    setStep(s => s + 1);
+    setTimer({ phase:'preview', timeLeft:0, set:1 });
+  };
+
+  const { phase, timeLeft, set } = timer;
+  const isPreview = phase === 'preview';
+  const isWorking = phase === 'working';
+  const isResting = phase === 'resting';
+  const isDone    = phase === 'done';
+
+  const TYPE_COLOR = { mobility:th.accent, stretch:th.warning, hang:th.danger };
+  const TYPE_LABEL = { mobility:'MOBILITY', stretch:'STRETCH', hang:'HANG' };
+  const typeColor  = TYPE_COLOR[cur.type] || th.accent;
+
+  const ringColor = isDone || isResting ? th.success : isPreview ? th.border : typeColor;
+  const ringMax   = isResting ? cur.rest : cur.duration;
+  const ringVal   = isDone ? ringMax : isPreview ? 0 : timeLeft;
+
+  const skipLabel = isResting ? 'Skip Rest →'
+    : (set < cur.sets ? 'Skip Set →' : 'Skip Exercise →');
+
+  return (
+    <div className="sheet-wrap" onClick={onClose}>
+      <div className="sheet" style={{ background:th.bg, padding:'20px 20px 32px' }} onClick={e => e.stopPropagation()}>
+
+        <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:16 }}>
+          <div>
+            <p style={{ fontSize:10, fontWeight:700, color:th.textMuted, letterSpacing:'0.08em' }}>WARM-UP · ~5 MIN</p>
+            <p style={{ fontSize:14, fontWeight:700, color:th.text }}>Step {step + 1} of {WARMUP_STEPS.length}</p>
+          </div>
+          <button className="icon-btn" onClick={onClose} style={{ background:th.surface }}><Icon name="x" size={16} color={th.textSub}/></button>
+        </div>
+
+        <div style={{ display:'flex', gap:4, marginBottom:22 }}>
+          {WARMUP_STEPS.map((s, i) => (
+            <div key={s.id} style={{ flex:1, height:4, borderRadius:2, background: i < step ? th.accent : i === step ? typeColor : th.border, transition:'background 0.3s' }}/>
+          ))}
+        </div>
+
+        <div style={{ textAlign:'center', marginBottom:20 }}>
+          <span style={{ fontSize:10, fontWeight:700, color:typeColor, background:typeColor + '22', padding:'3px 10px', borderRadius:20, letterSpacing:'0.08em' }}>
+            {TYPE_LABEL[cur.type]}
+          </span>
+          <p style={{ fontSize:20, fontWeight:800, color:th.text, marginTop:10, marginBottom:3 }}>{cur.label}</p>
+          <p style={{ fontSize:13, color:th.textSub }}>{cur.sub}</p>
+          {cur.sets > 1 && (
+            <p style={{ fontSize:11, color:th.textMuted, marginTop:3 }}>{cur.sets} sets · {cur.duration}s on · {cur.rest}s rest</p>
+          )}
+        </div>
+
+        <div style={{ display:'flex', flexDirection:'column', alignItems:'center', marginBottom:24 }}>
+          <Ring value={ringVal} max={ringMax} size={160} stroke={12} color={ringColor} track={th.border}>
+            <div style={{ textAlign:'center' }}>
+              {isDone ? (
+                <p style={{ fontSize:44, color:th.success }}>✓</p>
+              ) : (
+                <>
+                  <p style={{ fontSize:52, fontWeight:800, color:isPreview ? th.textMuted : ringColor, fontFamily:"'DM Mono', monospace", lineHeight:1 }}>
+                    {isPreview ? cur.duration : timeLeft}
+                  </p>
+                  <p style={{ fontSize:10, fontWeight:700, letterSpacing:'0.12em', color:isPreview ? th.textMuted : ringColor, marginTop:4 }}>
+                    {isPreview ? 'sec' : isResting ? 'REST' : 'GO'}
+                  </p>
+                </>
+              )}
+            </div>
+          </Ring>
+          {!isPreview && !isDone && cur.sets > 1 && (
+            <p style={{ fontSize:13, color:th.textSub, marginTop:12 }}>
+              {isResting ? `Rest · next set ${set + 1}/${cur.sets}` : `Set ${set} of ${cur.sets}`}
+            </p>
+          )}
+        </div>
+
+        {isPreview && (
+          <button onClick={startStep} style={{ width:'100%', padding:'16px', borderRadius:th.radius, background:typeColor, color:'#fff', fontSize:16, fontWeight:700, border:'none', cursor:'pointer', fontFamily:'DM Sans' }}>
+            Start
+          </button>
+        )}
+        {isDone && (
+          <button onClick={advance} style={{ width:'100%', padding:'16px', borderRadius:th.radius, background:isLast ? th.success : th.accent, color:isLast ? '#fff' : th.accentText, fontSize:16, fontWeight:700, border:'none', cursor:'pointer', fontFamily:'DM Sans' }}>
+            {isLast ? 'Warm-Up Complete →' : 'Next Step →'}
+          </button>
+        )}
+        {(isWorking || isResting) && (
+          <button onClick={skipCurrent} style={{ width:'100%', padding:'14px', borderRadius:th.radius, background:th.surface, border:`1px solid ${th.border}`, color:th.textSub, fontSize:14, fontWeight:600, cursor:'pointer', fontFamily:'DM Sans' }}>
+            {skipLabel}
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // ── TRAINING SCREEN ───────────────────────────────────────────────────────────
 function TrainingScreen({ sessions, setSessions, currentSession, setCurrentSession, tweaks, onNavigate }) {
   const th = THEMES[tweaks.theme];
   const [showAdd, setShowAdd] = tState(false);
   const [showTimer, setShowTimer] = tState(false);
+  const [showWarmup, setShowWarmup] = tState(false);
   const [elapsed, setElapsed] = tState(0);
 
   const isTrainingActive = currentSession?.type === 'training';
@@ -323,6 +472,36 @@ function TrainingScreen({ sessions, setSessions, currentSession, setCurrentSessi
           ))}
         </div>
 
+        {/* Warm-up card */}
+        <div style={{ background:th.card, border:`1px solid ${th.border}`, borderRadius:th.radius, padding:'14px 16px', marginBottom:12, boxShadow:th.shadow }}>
+          <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:10 }}>
+            <div>
+              <p style={{ fontSize:14, fontWeight:700, color:th.text }}>Climber Warm-Up</p>
+              <p style={{ fontSize:12, color:th.textSub, marginTop:1 }}>~5 min · mobility, stretches & dead hangs</p>
+            </div>
+            <div style={{ background:th.accentSoft, borderRadius:th.radiusSm, padding:'5px 7px', flexShrink:0 }}>
+              <Icon name="timer" size={16} color={th.accentSoftText}/>
+            </div>
+          </div>
+          <div style={{ display:'flex', flexDirection:'column', gap:5, marginBottom:12 }}>
+            {WARMUP_STEPS.map(s => {
+              const dotColor = { mobility:th.accent, stretch:th.warning, hang:th.danger }[s.type] || th.accent;
+              return (
+                <div key={s.id} style={{ display:'flex', alignItems:'center', gap:8 }}>
+                  <div style={{ width:6, height:6, borderRadius:'50%', background:dotColor, flexShrink:0 }}/>
+                  <p style={{ fontSize:12, color:th.text, flex:1 }}>{s.label}</p>
+                  <p style={{ fontSize:11, color:th.textMuted, fontFamily:"'DM Mono', monospace" }}>
+                    {s.sets > 1 ? `${s.duration}s × ${s.sets}` : `${s.duration}s`}
+                  </p>
+                </div>
+              );
+            })}
+          </div>
+          <button onClick={() => setShowWarmup(true)} style={{ width:'100%', padding:'11px', borderRadius:th.radiusSm, background:th.accentSoft, border:'none', color:th.accentSoftText, fontSize:13, fontWeight:700, cursor:'pointer', fontFamily:'DM Sans' }}>
+            Start Warm-Up
+          </button>
+        </div>
+
         {last ? (
           <div style={{ background:th.card, border:`1px solid ${th.border}`, borderRadius:th.radius, padding:'14px 16px', boxShadow:th.shadow }}>
             <p style={{ fontSize:11, fontWeight:700, color:th.textSub, letterSpacing:'0.07em', textTransform:'uppercase', marginBottom:10 }}>Last training</p>
@@ -359,6 +538,8 @@ function TrainingScreen({ sessions, setSessions, currentSession, setCurrentSessi
           <Icon name="plus" size={20} color={th.accentText}/> Start Training
         </button>
       </div>
+
+      {showWarmup && <WarmUpOverlay tweaks={tweaks} onClose={() => setShowWarmup(false)}/>}
     </div>
   );
 }
